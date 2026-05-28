@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="tool-container">
+    <h1>Grammar Fixer</h1>
+    <p class="lead">Paste your writing and automatically correct grammar, punctuation, and clarity.</p>
+    <form method="POST">
+        <div class="form-group">
+            <label for="text">Text to fix</label>
+            <textarea id="text" name="text" rows="12" placeholder="Paste text here..." required></textarea>
+        </div>
+        <button type="submit">Fix Grammar</button>
+    </form>
+
+    {% if output %}
+    <div class="output-box">
+        <h2>Corrected Text</h2>
+        <p>{{ output }}</p>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

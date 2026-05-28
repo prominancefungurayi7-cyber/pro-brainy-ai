@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="tool-container">
+    <h1>AI Detector</h1>
+    <p class="lead">Paste text or upload a .txt file to analyze whether it was written by AI.</p>
+    <form method="POST" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="text">Text to analyze</label>
+            <textarea id="text" name="text" rows="12" placeholder="Paste text here..."></textarea>
+        </div>
+        <div class="form-group">
+            <label for="file">Upload file</label>
+            <input id="file" type="file" name="file" accept=".txt,.pdf,.docx">
+        </div>
+        <button type="submit">Analyze Text</button>
+    </form>
+
+    {% if output %}
+    <div class="output-box">
+        <h2>Detection Result</h2>
+        <pre>{{ output }}</pre>
+
+        {% if analyzed_text %}
+        <form method="POST" action="{{ url_for('humanizer.humanizer') }}">
+            <input type="hidden" name="text"> 
+            <textarea name="text" style="display:none">{{ analyzed_text }}</textarea>
+            <input type="hidden" name="orig_filename" value="{{ orig_filename if orig_filename else '' }}">
+            <button type="submit">Humanize This Text</button>
+        </form>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if output %}
+    <div class="output-box">
+        <h2>Analysis</h2>
+        <p>{{ output }}</p>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

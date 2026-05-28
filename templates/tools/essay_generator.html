@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="tool-container">
+    <h1>Essay Generator</h1>
+    <p class="lead">Generate a structured essay outline and draft based on your topic.</p>
+    <form method="POST">
+        <div class="form-group">
+            <label for="topic">Topic</label>
+            <input id="topic" name="topic" type="text" placeholder="Essay topic" required>
+        </div>
+        <div class="form-group">
+            <label for="word_count">Word count</label>
+            <input id="word_count" name="word_count" type="number" value="500" min="100" max="2000">
+        </div>
+        <button type="submit">Generate Essay</button>
+    </form>
+
+    {% if output %}
+    <div class="output-box">
+        <h2>Generated Essay</h2>
+        <p>{{ output }}</p>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

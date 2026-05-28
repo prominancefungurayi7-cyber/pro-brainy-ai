@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Brainy AI Toolkit</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav>
+        <div class="logo">Pro Brainy AI</div>
+        <ul>
+            <li><a href="{{ url_for('home') }}">Home</a></li>
+            <li><a href="{{ url_for('humanizer.humanizer') }}">Humanizer</a></li>
+            <li><a href="{{ url_for('detector.detector') }}">Detector</a></li>
+            <li><a href="{{ url_for('grammar.grammar') }}">Grammar Fixer</a></li>
+            <li><a href="{{ url_for('essay.essay_generator') }}">Essay</a></li>
+            <li><a href="{{ url_for('summarizer.summarizer') }}">Summarizer</a></li>
+            <li><a href="{{ url_for('resume.resume_generator') }}">Resume</a></li>
+            <li><a href="{{ url_for('ppt.ppt_generator') }}">Presentation</a></li>
+            {% if current_user.is_authenticated %}
+                <li><a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a></li>
+                <li><a href="{{ url_for('auth.logout') }}">Logout</a></li>
+            {% else %}
+                <li><a href="{{ url_for('auth.login') }}">Login</a></li>
+                <li><a href="{{ url_for('auth.register') }}">Register</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

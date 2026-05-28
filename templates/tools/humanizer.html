@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="tool-container">
+    <h1>AI Humanizer</h1>
+    <p class="lead">Paste AI-generated text or upload a .txt file to rewrite it in a more natural, human tone.</p>
+    <form method="POST" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="text">Text to humanize</label>
+            <textarea id="text" name="text" rows="12" placeholder="Paste AI-generated text here..."></textarea>
+        </div>
+        <div class="form-group">
+            <label for="file">Upload file</label>
+            <input id="file" type="file" name="file" accept=".txt,.pdf,.docx">
+        </div>
+        <button type="submit">Humanize Text</button>
+    </form>
+
+    {% if output %}
+    <div class="output-box">
+        <h2>Humanized Output</h2>
+        <pre>{{ output }}</pre>
+
+        <form method="POST" action="{{ url_for('humanizer.humanizer_download') }}">
+            <input type="hidden" name="download_content" value="{{ output|e }}">
+            <input type="hidden" name="download_filename" value="{{ orig_filename if orig_filename else 'humanized.txt' }}">
+            <button type="submit">Download Humanized File</button>
+        </form>
+    </div>
+    {% endif %}
+
+    {% if output %}
+    <div class="output-box">
+        <h2>Humanized Output</h2>
+        <p>{{ output }}</p>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

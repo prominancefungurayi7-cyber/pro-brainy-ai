@@ -1,0 +1,9 @@
+Flask
+Flask-SQLAlchemy
+Flask-Login
+python-dotenv
+requests
+google-generativeai
+Werkzeug
+PyPDF2
+python-docx

@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="dashboard">
+    <h1>Welcome back, {{ user.username }}!</h1>
+    <p class="lead">Quick access to all AI tools from one dashboard so you can continue working without friction.</p>
+    <div class="dashboard-grid">
+        <a class="card" href="{{ url_for('humanizer.humanizer') }}">Humanizer</a>
+        <a class="card" href="{{ url_for('detector.detector') }}">Detector</a>
+        <a class="card" href="{{ url_for('grammar.grammar') }}">Grammar Fixer</a>
+        <a class="card" href="{{ url_for('essay.essay_generator') }}">Essay Generator</a>
+        <a class="card" href="{{ url_for('summarizer.summarizer') }}">Summarizer</a>
+        <a class="card" href="{{ url_for('resume.resume_generator') }}">Resume Generator</a>
+        <a class="card" href="{{ url_for('ppt.ppt_generator') }}">Presentation Generator</a>
+    </div>
+</section>
+{% endblock %}
