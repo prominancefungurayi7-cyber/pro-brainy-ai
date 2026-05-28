@@ -2,13 +2,15 @@ from services.gemini_service import generate_response
 from services.level_service import build_level_instruction
 
 
-def generate_essay(topic, word_count=500, education_level='Primary school'):
+def generate_composition(topic, word_count=300, education_level='Primary school'):
     prompt = f"""
-Write a well-organized essay about \"{topic}\".
+Write a composition on the following topic:
+"{topic}"
+
 {build_level_instruction(education_level)}
-Use clear paragraphs and natural language.
+Use a clear beginning, middle, and ending. Include interesting details and smooth transitions.
 Aim for approximately {word_count} words.
 
-Essay:
+Composition:
 """
     return generate_response(prompt)

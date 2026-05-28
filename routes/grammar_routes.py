@@ -11,6 +11,7 @@ def grammar():
 
     if request.method == 'POST':
         user_text = request.form.get('text')
-        output = fix_grammar(user_text)
+        education_level = request.form.get('education_level', 'Primary school')
+        output = fix_grammar(user_text, education_level)
 
     return render_template('tools/grammar.html', output=output)

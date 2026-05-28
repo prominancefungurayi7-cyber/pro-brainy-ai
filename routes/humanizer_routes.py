@@ -45,11 +45,12 @@ def humanizer():
     if request.method == 'POST':
         uploaded_file = request.files.get('file')
         user_text = _read_uploaded_text(uploaded_file) if uploaded_file else request.form.get('text')
+        education_level = request.form.get('education_level', 'Primary school')
         # preserve original filename when available (from upload or redirected form)
         orig_filename = (uploaded_file.filename if uploaded_file and uploaded_file.filename else request.form.get('orig_filename'))
 
         if user_text:
-            output = humanize_text(user_text)
+            output = humanize_text(user_text, education_level)
         else:
             output = 'Please paste text or upload a .txt, .pdf, or .docx file to humanize.'
 

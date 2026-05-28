@@ -29,6 +29,7 @@ from routes.essay_routes import essay_bp
 from routes.summarizer_routes import summarizer_bp
 from routes.resume_routes import resume_bp
 from routes.ppt_routes import ppt_bp
+from routes.composition_routes import composition_bp
 
 # Register blueprints
 app.register_blueprint(humanizer_bp)
@@ -40,6 +41,7 @@ app.register_blueprint(essay_bp)
 app.register_blueprint(summarizer_bp)
 app.register_blueprint(resume_bp)
 app.register_blueprint(ppt_bp)
+app.register_blueprint(composition_bp)
 
 
 @app.route('/')

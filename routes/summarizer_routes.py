@@ -9,8 +9,9 @@ def summarizer():
     if request.method == 'POST':
         text = request.form.get('text')
         style = request.form.get('style', 'concise')
+        education_level = request.form.get('education_level', 'Primary school')
 
         if text:
-            output = summarize_text(text, style)
+            output = summarize_text(text, style, education_level)
 
     return render_template('tools/summarizer.html', output=output)
