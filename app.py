@@ -44,6 +44,12 @@ app.register_blueprint(ppt_bp)
 app.register_blueprint(composition_bp)
 
 
+@app.before_request
+def ensure_database_tables():
+    with app.app_context():
+        db.create_all()
+
+
 @app.route('/')
 def home():
     return render_template('index.html')

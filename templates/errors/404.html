@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="auth-container">
+    <h1>Page not found</h1>
+    <p class="lead">The page you requested does not exist. Check the URL or return to the homepage.</p>
+    <p><a class="btn" href="{{ url_for('home') }}">Go home</a></p>
+</section>
+{% endblock %}

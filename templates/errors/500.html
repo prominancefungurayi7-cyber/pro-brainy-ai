@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="auth-container">
+    <h1>Something went wrong</h1>
+    <p class="lead">An internal server error occurred. Please try again in a moment, or return to the homepage.</p>
+    <p><a class="btn" href="{{ url_for('home') }}">Go home</a></p>
+</section>
+{% endblock %}
