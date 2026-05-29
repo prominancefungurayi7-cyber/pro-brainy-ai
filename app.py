@@ -44,10 +44,8 @@ app.register_blueprint(ppt_bp)
 app.register_blueprint(composition_bp)
 
 
-@app.before_request
-def ensure_database_tables():
-    with app.app_context():
-        db.create_all()
+with app.app_context():
+    db.create_all()
 
 
 @app.route('/')
@@ -66,7 +64,4 @@ def server_error(error):
 
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-
     app.run(debug=True)
