@@ -11,8 +11,8 @@ def login():
         return redirect(url_for('dashboard.dashboard'))
 
     if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
+        email = (request.form.get('email') or '').strip().lower()
+        password = request.form.get('password') or ''
 
         if not email or not password:
             flash('Email and password are required.', 'danger')
@@ -36,12 +36,16 @@ def register():
         return redirect(url_for('dashboard.dashboard'))
 
     if request.method == 'POST':
-        username = request.form.get('username')
-        email = request.form.get('email')
-        password = request.form.get('password')
+        username = (request.form.get('username') or '').strip()
+        email = (request.form.get('email') or '').strip().lower()
+        password = request.form.get('password') or ''
 
         if not username or not email or not password:
             flash('Username, email, and password are required.', 'danger')
+            return redirect(url_for('auth.register'))
+
+        if len(password) < 8:
+            flash('Password must be at least 8 characters long.', 'danger')
             return redirect(url_for('auth.register'))
 
         if User.query.filter_by(email=email).first():

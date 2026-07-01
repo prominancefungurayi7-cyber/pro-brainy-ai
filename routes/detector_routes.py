@@ -49,8 +49,8 @@ def detector():
             analyzed_text = user_text
             orig_filename = (uploaded_file.filename if uploaded_file and uploaded_file.filename else None)
 
-            if user_text:
-                output = detect_ai(user_text)
+            if user_text and user_text.strip():
+                output = detect_ai(user_text.strip())
             else:
                 output = 'Please paste text or upload a .txt, .pdf, or .docx file to analyze.'
 

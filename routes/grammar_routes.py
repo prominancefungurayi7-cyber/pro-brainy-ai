@@ -10,8 +10,12 @@ def grammar():
     output = None
 
     if request.method == 'POST':
-        user_text = request.form.get('text')
+        user_text = (request.form.get('text') or '').strip()
         education_level = request.form.get('education_level', 'Primary school')
-        output = fix_grammar(user_text, education_level)
+
+        if user_text:
+            output = fix_grammar(user_text, education_level)
+        else:
+            output = 'Please paste text to fix.'
 
     return render_template('tools/grammar.html', output=output)

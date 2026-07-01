@@ -1,89 +1,144 @@
-import google.generativeai as genai
-from config import Config
 import concurrent.futures
 import re
 import time
 
-api_key = Config.GEMINI_API_KEY
-DEFAULT_MODEL = 'gemini-flash-latest'
-FALLBACK_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash']
-MODELS = [DEFAULT_MODEL] + FALLBACK_MODELS
-TIMEOUT_SECONDS = 20
+from google import genai
+from google.genai import errors as genai_errors
 
-genai_configured = False
+from config import Config
+
+api_key = Config.GEMINI_API_KEY
+DEFAULT_MODEL = 'gemini-2.5-flash'
+FALLBACK_MODELS = ['gemini-2.0-flash', 'gemini-flash-latest']
+MODELS = [DEFAULT_MODEL] + FALLBACK_MODELS
+TIMEOUT_SECONDS = 45
+
+_client = None
 if api_key:
-    genai.configure(api_key=api_key)
-    genai_configured = True
+    _client = genai.Client(api_key=api_key)
 
 
 def _extract_text_from_response(response):
+    if response is None:
+        return None
     if hasattr(response, 'text') and response.text:
         return response.text
     if hasattr(response, 'candidates') and response.candidates:
         candidate = response.candidates[0]
-        return getattr(candidate, 'output', getattr(candidate, 'content', str(candidate)))
-    if hasattr(response, 'content'):
-        return response.content
+        content = getattr(candidate, 'content', None)
+        if content and hasattr(content, 'parts') and content.parts:
+            text_parts = []
+            for part in content.parts:
+                part_text = getattr(part, 'text', None)
+                if part_text:
+                    text_parts.append(part_text)
+            if text_parts:
+                return ''.join(text_parts)
+        return getattr(candidate, 'output', str(candidate))
     return str(response)
 
 
 def _parse_retry_seconds(exc_text):
-    # Look for patterns like 'retry in 24.5s' or 'Retry-After: 24'
     if not exc_text:
         return None
-    m = re.search(r'retry in\s*(\d+(?:\.\d+)?)s', exc_text, re.IGNORECASE)
-    if m:
+    match = re.search(r'retry in\s*(\d+(?:\.\d+)?)s', exc_text, re.IGNORECASE)
+    if match:
         try:
-            return float(m.group(1))
-        except Exception:
+            return float(match.group(1))
+        except ValueError:
             return None
-    m2 = re.search(r'Retry-After:\s*(\d+)', exc_text, re.IGNORECASE)
-    if m2:
+    match = re.search(r'Retry-After:\s*(\d+)', exc_text, re.IGNORECASE)
+    if match:
         try:
-            return int(m2.group(1))
-        except Exception:
+            return int(match.group(1))
+        except ValueError:
             return None
     return None
 
 
+def _is_rate_limit_error(error_text):
+    lowered = error_text.lower()
+    return (
+        'quota' in lowered
+        or '429' in error_text
+        or 'rate limit' in lowered
+        or 'resource_exhausted' in lowered
+    )
+
+
+def _generate_with_model(model_name, prompt):
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(
+            _client.models.generate_content,
+            model=model_name,
+            contents=prompt,
+        )
+        try:
+            return future.result(timeout=TIMEOUT_SECONDS)
+        except concurrent.futures.TimeoutError as exc:
+            raise TimeoutError(
+                f'AI generation timed out after {TIMEOUT_SECONDS} seconds. Try again later.'
+            ) from exc
+
+
 def generate_response(prompt):
-    if not genai_configured:
+    if not _client:
         return 'AI service unavailable. Configure GEMINI_API_KEY and restart the app.'
 
+    if not prompt or not str(prompt).strip():
+        return 'Please provide text for the AI to process.'
+
     last_error = None
-    # Try each model in order; if one returns a quota/429 error, try the next
     for candidate_model in MODELS:
         try:
-            try:
-                model = genai.GenerativeModel(candidate_model)
-            except Exception as e:
-                last_error = e
-                continue
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-                fut = ex.submit(model.generate_content, prompt)
-                try:
-                    response = fut.result(timeout=TIMEOUT_SECONDS)
-                except concurrent.futures.TimeoutError:
-                    return f'AI generation timed out after {TIMEOUT_SECONDS} seconds. Try again later.'
-
-            return _extract_text_from_response(response)
-
+            response = _generate_with_model(candidate_model, prompt)
+            text = _extract_text_from_response(response)
+            if text:
+                return text
+            last_error = RuntimeError(f'Model {candidate_model} returned an empty response.')
+        except TimeoutError as error:
+            return str(error)
+        except genai_errors.ClientError as error:
+            last_error = error
+            error_text = str(error)
+            if _is_rate_limit_error(error_text):
+                retry_seconds = _parse_retry_seconds(error_text)
+                if retry_seconds:
+                    return (
+                        f'Quota exceeded for model {candidate_model}. '
+                        f'Please retry in {int(retry_seconds)} seconds or check billing/limits.'
+                    )
+                return (
+                    f'Quota or rate-limit exceeded for model {candidate_model}. '
+                    'Check your plan and billing details.'
+                )
+        except genai_errors.ServerError as error:
+            last_error = error
+            error_text = str(error)
+            if _is_rate_limit_error(error_text):
+                retry_seconds = _parse_retry_seconds(error_text)
+                if retry_seconds:
+                    return (
+                        f'Service busy for model {candidate_model}. '
+                        f'Please retry in {int(retry_seconds)} seconds.'
+                    )
+            continue
         except Exception as error:
             last_error = error
-            text = str(error)
-            # Detect quota / rate limit messages with 429 and suggested retry
-            if 'quota' in text.lower() or '429' in text or 'rate limit' in text.lower():
-                retry_seconds = _parse_retry_seconds(text)
+            error_text = str(error)
+            if _is_rate_limit_error(error_text):
+                retry_seconds = _parse_retry_seconds(error_text)
                 if retry_seconds:
-                    # Surface a clear message to the user with retry time
-                    return f'Quota exceeded for model {candidate_model}. Please retry in {int(retry_seconds)} seconds or check billing/limits.'
-                else:
-                    return f'Quota or rate-limit exceeded for model {candidate_model}. Check your plan and billing details.'
-            # otherwise try next candidate_model
+                    return (
+                        f'Quota exceeded for model {candidate_model}. '
+                        f'Please retry in {int(retry_seconds)} seconds or check billing/limits.'
+                    )
+                return (
+                    f'Quota or rate-limit exceeded for model {candidate_model}. '
+                    'Check your plan and billing details.'
+                )
             continue
 
-    # If we exhausted models
     if last_error:
         return f'Error generating AI content: {last_error}'
     return 'Error generating AI content: unknown error'

@@ -4,7 +4,7 @@
 
 <div class="tool-container">
     <h1>AI Humanizer</h1>
-    <p class="lead">Paste AI-generated text or upload a .txt file to rewrite it in a more natural, human tone.</p>
+    <p class="lead">Paste AI-generated text or upload a .txt, .pdf, or .docx file to rewrite it in a more natural, human tone.</p>
     <form method="POST" enctype="multipart/form-data">
         <div class="form-group">
             <label for="text">Text to humanize</label>
@@ -32,17 +32,10 @@
         <pre>{{ output }}</pre>
 
         <form method="POST" action="{{ url_for('humanizer.humanizer_download') }}">
-            <input type="hidden" name="download_content" value="{{ output|e }}">
+            <textarea name="download_content" hidden>{{ output }}</textarea>
             <input type="hidden" name="download_filename" value="{{ orig_filename if orig_filename else 'humanized.txt' }}">
             <button type="submit">Download Humanized File</button>
         </form>
-    </div>
-    {% endif %}
-
-    {% if output %}
-    <div class="output-box">
-        <h2>Humanized Output</h2>
-        <p>{{ output }}</p>
     </div>
     {% endif %}
 </div>
