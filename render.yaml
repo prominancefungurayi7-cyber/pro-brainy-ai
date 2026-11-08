@@ -6,7 +6,7 @@ services:
     plan: free
     branch: main
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --workers 2 --bind 0.0.0.0:$PORT
+    startCommand: gunicorn app:app --workers 1 --bind 0.0.0.0:$PORT
     healthCheckPath: /health
     autoDeployTrigger: checksPass
     envVars:
@@ -17,11 +17,4 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: DATABASE_URL
-        fromDatabase:
-          name: pro-brainy-ai-db
-          property: connectionString
-
-databases:
-  - name: pro-brainy-ai-db
-    region: oregon
-    plan: free
+        value: sqlite:///database.db
