@@ -1,7 +1,6 @@
 import concurrent.futures
 import logging
 import re
-import time
 
 from google import genai
 from google.genai import errors as genai_errors
@@ -11,7 +10,7 @@ from config import Config
 
 api_key = (Config.GEMINI_API_KEY or '').strip()
 DEFAULT_MODEL = 'gemini-2.5-flash'
-FALLBACK_MODELS = ['gemini-2.0-flash', 'gemini-flash-latest']
+FALLBACK_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.6-flash']
 MODELS = [DEFAULT_MODEL] + FALLBACK_MODELS
 TIMEOUT_SECONDS = 45
 
@@ -120,6 +119,8 @@ def generate_response(prompt, *, config=None, raise_on_error=False):
         return _failure('Please provide text for the AI to process.', raise_on_error)
 
     last_error = None
+    saw_rate_limit = False
+    retry_seconds = None
     for candidate_model in MODELS:
         try:
             response = _generate_with_model(candidate_model, prompt, config=config)
@@ -133,43 +134,32 @@ def generate_response(prompt, *, config=None, raise_on_error=False):
             last_error = error
             error_text = str(error)
             if _is_rate_limit_error(error_text):
-                retry_seconds = _parse_retry_seconds(error_text)
-                if retry_seconds:
-                    return _failure((
-                        f'Quota exceeded for model {candidate_model}. '
-                        f'Please retry in {int(retry_seconds)} seconds or check billing/limits.'
-                    ), raise_on_error)
-                return _failure((
-                    f'Quota or rate-limit exceeded for model {candidate_model}. '
-                    'Check your plan and billing details.'
-                ), raise_on_error)
+                saw_rate_limit = True
+                retry_seconds = _parse_retry_seconds(error_text) or retry_seconds
+                continue
         except genai_errors.ServerError as error:
             last_error = error
             error_text = str(error)
             if _is_rate_limit_error(error_text):
-                retry_seconds = _parse_retry_seconds(error_text)
-                if retry_seconds:
-                    return _failure((
-                        f'Service busy for model {candidate_model}. '
-                        f'Please retry in {int(retry_seconds)} seconds.'
-                    ), raise_on_error)
+                saw_rate_limit = True
+                retry_seconds = _parse_retry_seconds(error_text) or retry_seconds
             continue
         except Exception as error:
             last_error = error
             error_text = str(error)
             if _is_rate_limit_error(error_text):
-                retry_seconds = _parse_retry_seconds(error_text)
-                if retry_seconds:
-                    return _failure((
-                        f'Quota exceeded for model {candidate_model}. '
-                        f'Please retry in {int(retry_seconds)} seconds or check billing/limits.'
-                    ), raise_on_error)
-                return _failure((
-                    f'Quota or rate-limit exceeded for model {candidate_model}. '
-                    'Check your plan and billing details.'
-                ), raise_on_error)
+                saw_rate_limit = True
+                retry_seconds = _parse_retry_seconds(error_text) or retry_seconds
             continue
 
+    if saw_rate_limit:
+        logging.getLogger(__name__).warning('Gemini request rate limited across available models')
+        if retry_seconds:
+            return _failure(
+                f'AI is busy. Please retry in about {max(1, round(retry_seconds))} seconds.',
+                raise_on_error,
+            )
+        return _failure('AI is busy. Please try again later.', raise_on_error)
     if last_error:
         logging.getLogger(__name__).warning('Gemini request failed: %s', type(last_error).__name__)
         return _failure('AI service temporarily unavailable. Please try again.', raise_on_error)

@@ -2,7 +2,11 @@ def csrf_token(client):
     with client.session_transaction() as session:
         token = session.get('_csrf_token')
     if token is None:
-        client.get('/')
+        client.get('/dashboard')
+        with client.session_transaction() as session:
+            token = session.get('_csrf_token')
+    if token is None:
+        client.get('/login')
         with client.session_transaction() as session:
             token = session['_csrf_token']
     return token

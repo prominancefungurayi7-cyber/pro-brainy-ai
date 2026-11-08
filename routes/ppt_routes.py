@@ -10,13 +10,12 @@ def ppt_generator():
         topic = request.form.get('topic')
         audience = request.form.get('audience')
         slides = request.form.get('slides', 5)
-        education_level = request.form.get('education_level', 'Primary school')
         try:
-            slides = int(slides)
+            slides = max(3, min(20, int(slides)))
         except (ValueError, TypeError):
             slides = 5
 
         if topic:
-            output = generate_presentation(topic, audience, slides, education_level)
+            output = generate_presentation(topic, audience, slides)
 
     return render_template('tools/ppt_generator.html', output=output)

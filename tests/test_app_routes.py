@@ -19,10 +19,10 @@ class AppRouteTests(unittest.TestCase):
             db.session.remove()
             db.drop_all()
 
-    def test_homepage_renders(self):
+    def test_signed_in_root_opens_dashboard(self):
         response = self.client.get('/')
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b'All Your AI Writing Tools In One Place', response.data)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.headers['Location'].endswith('/dashboard'))
 
     @patch('services.gemini_service._client', object())
     def test_health_check(self):
@@ -58,13 +58,33 @@ class AppRouteTests(unittest.TestCase):
 
     def test_guest_sees_account_pages_without_service_links(self):
         guest = app.test_client()
-        self.assertEqual(guest.get('/').status_code, 302)
+        first_visit = guest.get('/')
+        self.assertEqual(first_visit.status_code, 302)
+        self.assertTrue(first_visit.headers['Location'].endswith('/login'))
         for path in ('/login', '/register'):
             with self.subTest(path=path):
                 response = guest.get(path)
                 self.assertEqual(response.status_code, 200)
                 self.assertNotIn(b'/humanizer', response.data)
                 self.assertNotIn(b'Writing tools', response.data)
+
+    def test_login_introduces_workspace_without_tool_navigation(self):
+        guest = app.test_client()
+        response = guest.get('/', follow_redirects=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Your ideas deserve to sound like', response.data)
+        self.assertIn(b'Create an account', response.data)
+        self.assertIn(b'name="_csrf_token"', response.data)
+        self.assertNotIn(b'/resume', response.data)
+
+    def test_education_level_only_appears_on_school_writing_tools(self):
+        without_levels = ('/humanizer', '/grammar', '/summarizer', '/resume', '/ppt', '/detector')
+        for path in without_levels:
+            with self.subTest(path=path):
+                self.assertNotIn(b'name="education_level"', self.client.get(path).data)
+        for path in ('/essay', '/composition'):
+            with self.subTest(path=path):
+                self.assertIn(b'name="education_level"', self.client.get(path).data)
 
 
 class ServiceIntegrationTests(unittest.TestCase):

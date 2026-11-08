@@ -1,25 +1,71 @@
-{% extends 'base.html' %}
-{% block title %}Log in | Pro Brainy AI{% endblock %}
-{% block topbar_title %}Welcome back{% endblock %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#102e2b">
+    <title>Sign in | Pro Brainy AI</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+</head>
+<body>
+    <a class="skip-link" href="#login-main">Skip to sign in</a>
+    <div class="login-shell">
+        <section class="welcome-panel" aria-labelledby="welcome-title">
+            <a class="brand" href="{{ url_for('auth.login') }}" aria-label="Pro Brainy AI sign in">
+                <span class="brand-mark" aria-hidden="true">PB</span>
+                <span class="brand-name">Pro Brainy <span>AI</span></span>
+            </a>
 
-{% block content %}
+            <div class="welcome-copy">
+                <p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span> A better space for your words</p>
+                <h1 id="welcome-title">Your ideas deserve to sound like <em>you.</em></h1>
+                <p class="welcome-lead">Bring your thoughts, drafts, and documents together. Pro Brainy AI helps you write with more clarity and confidence while keeping your voice at the center.</p>
 
-<div class="auth-container">
-    <h1>Login</h1>
-    <p class="lead">Access your toolkit dashboard and manage your AI writing workflows.</p>
-    <form method="POST">
-        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
-        <div class="form-group">
-            <label for="email">Email</label>
-            <input id="email" type="email" name="email" placeholder="you@example.com" required>
-        </div>
-        <div class="form-group">
-            <label for="password">Password</label>
-            <input id="password" type="password" name="password" placeholder="Password" required>
-        </div>
-        <button type="submit">Login</button>
-    </form>
-    <p class="auth-switch">New here? <a href="{{ url_for('auth.register') }}">Create an account →</a></p>
-</div>
+                <div class="welcome-benefits" aria-label="What Pro Brainy AI helps you do">
+                    <div><span class="benefit-number">01</span><p>Find the right words for your ideas.</p></div>
+                    <div><span class="benefit-number">02</span><p>Polish your writing and keep its meaning.</p></div>
+                    <div><span class="benefit-number">03</span><p>Move from a rough draft to a clear result.</p></div>
+                </div>
+            </div>
 
-{% endblock %}
+            <p class="welcome-footer">A thoughtful writing workspace, ready when you are.</p>
+            <span class="welcome-orbit welcome-orbit-one" aria-hidden="true"></span>
+            <span class="welcome-orbit welcome-orbit-two" aria-hidden="true"></span>
+        </section>
+
+        <main class="form-panel" id="login-main">
+            <div class="form-inner">
+                <p class="form-eyebrow">Welcome back</p>
+                <h2>Sign in to your workspace</h2>
+                <p class="form-intro">Pick up where your ideas left off.</p>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                    <div class="flash-messages" role="status" aria-live="polite">
+                        {% for category, message in messages %}
+                        <p class="flash {{ category }}">{{ message }}</p>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                {% endwith %}
+
+                <form method="post" action="{{ url_for('auth.login') }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+                    <div class="field">
+                        <label for="email">Email address</label>
+                        <input id="email" name="email" type="email" inputmode="email" autocomplete="username" placeholder="you@example.com" required autofocus>
+                    </div>
+                    <div class="field">
+                        <label for="password">Password</label>
+                        <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required>
+                    </div>
+                    <button class="submit-button" type="submit">Sign in <span aria-hidden="true">&rarr;</span></button>
+                </form>
+
+                <p class="join-prompt">New to Pro Brainy AI? <a href="{{ url_for('auth.register') }}">Create an account</a></p>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

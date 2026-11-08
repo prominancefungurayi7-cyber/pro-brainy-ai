@@ -2,8 +2,8 @@ import os
 import hmac
 import secrets
 
-from flask import Flask, abort, jsonify, render_template, request, session
-from flask_login import LoginManager, current_user, login_required
+from flask import Flask, abort, jsonify, redirect, render_template, request, session, url_for
+from flask_login import LoginManager, current_user
 
 from config import Config
 from models.user import User, db
@@ -98,9 +98,10 @@ with app.app_context():
 
 
 @app.route('/')
-@login_required
 def home():
-    return render_template('index.html')
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard.dashboard'))
+    return redirect(url_for('auth.login'))
 
 
 @app.route('/health')

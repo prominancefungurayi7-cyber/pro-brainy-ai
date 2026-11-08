@@ -17,9 +17,9 @@ def _event(payload):
     return 'data: ' + json.dumps(payload, separators=(',', ':')) + '\n\n'
 
 
-def _stream_docx(content, download_name, education_level):
+def _stream_docx(content, download_name):
     try:
-        for update in humanize_docx_progress(content, education_level):
+        for update in humanize_docx_progress(content):
             if update['type'] == 'progress':
                 yield _event(update)
                 continue
@@ -69,12 +69,11 @@ def humanizer():
         uploaded_file = request.files.get('file')
         if uploaded_file and uploaded_file.filename.lower().endswith('.docx'):
             content = uploaded_file.read()
-            education_level = request.form.get('education_level', 'Primary school')
             safe_name = secure_filename(uploaded_file.filename) or 'document.docx'
             download_name = f'{safe_name[:-5]}_humanized.docx'
             if 'text/event-stream' in request.headers.get('Accept', ''):
                 response = Response(
-                    stream_with_context(_stream_docx(content, download_name, education_level)),
+                    stream_with_context(_stream_docx(content, download_name)),
                     mimetype='text/event-stream',
                 )
                 response.headers['Cache-Control'] = 'no-store'
@@ -82,7 +81,7 @@ def humanizer():
                 response.headers['X-Content-Type-Options'] = 'nosniff'
                 return response
             try:
-                processed = humanize_docx(content, education_level)
+                processed = humanize_docx(content)
             except DocumentHumanizationError as exc:
                 return render_template('tools/humanizer.html', output=str(exc)), 422
             return send_file(
@@ -92,12 +91,11 @@ def humanizer():
                 mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             )
         user_text = _read_uploaded_text(uploaded_file) if uploaded_file else request.form.get('text')
-        education_level = request.form.get('education_level', 'Primary school')
         # preserve original filename when available (from upload or redirected form)
         orig_filename = (uploaded_file.filename if uploaded_file and uploaded_file.filename else None)
 
         if user_text and user_text.strip():
-            output = humanize_text(user_text.strip(), education_level)
+            output = humanize_text(user_text.strip())
         else:
             output = 'Please paste text or upload a .txt, .pdf, or .docx file to humanize.'
 

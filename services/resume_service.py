@@ -1,8 +1,7 @@
 from services.gemini_service import generate_response
-from services.level_service import build_level_instruction
 
 
-def build_resume(name, title, experience, skills, education_level='Primary school'):
+def build_resume(name, title, experience, skills):
     prompt = f"""
 Create a professional resume summary and experience outline for the following candidate:
 
@@ -11,7 +10,7 @@ Title: {title}
 Experience: {experience}
 Skills: {skills}
 
-{build_level_instruction(education_level)}
-Provide a polished resume-ready version.
+Provide a polished, professional resume-ready version. Use only the supplied facts;
+do not invent employers, qualifications, dates, or achievements.
 """
     return generate_response(prompt)

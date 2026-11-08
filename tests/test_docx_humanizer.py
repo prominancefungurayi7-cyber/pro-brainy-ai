@@ -47,6 +47,7 @@ class DocxHumanizerTests(unittest.TestCase):
             self.assertNotIn('Introduction', prompt)
             self.assertNotIn('Table heading', prompt)
             self.assertNotIn('Manually bold heading', prompt)
+            self.assertNotIn('primary school', prompt.lower())
             self.assertEqual(kwargs['config']['response_mime_type'], 'application/json')
             self.assertTrue(kwargs['raise_on_error'])
             return json.dumps([{'id': item['id'], 'text': item['text'] + ' Humanized.'} for item in source])
@@ -54,7 +55,6 @@ class DocxHumanizerTests(unittest.TestCase):
         mock_ai.side_effect = rewrite
         response = self.client.post('/humanizer', data={
             '_csrf_token': csrf_token(self.client),
-            'education_level': 'O level',
             'file': (BytesIO(sample_document()), 'sample.docx'),
         }, content_type='multipart/form-data')
         self.assertEqual(response.status_code, 200)
