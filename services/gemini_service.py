@@ -5,6 +5,7 @@ import time
 
 from google import genai
 from google.genai import errors as genai_errors
+from google.genai import types
 
 from config import Config
 
@@ -16,7 +17,20 @@ TIMEOUT_SECONDS = 45
 
 _client = None
 if api_key:
-    _client = genai.Client(api_key=api_key)
+    _client = genai.Client(
+        api_key=api_key,
+        http_options=types.HttpOptions(timeout=TIMEOUT_SECONDS * 1000),
+    )
+
+
+class GeminiGenerationError(RuntimeError):
+    """A user-safe error for callers that need to reject invalid AI output."""
+
+
+def _failure(message, raise_on_error):
+    if raise_on_error:
+        raise GeminiGenerationError(message)
+    return message
 
 
 def _extract_text_from_response(response):
@@ -67,62 +81,68 @@ def _is_rate_limit_error(error_text):
     )
 
 
-def _generate_with_model(model_name, prompt):
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+def _generate_with_model(model_name, prompt, config=None):
+    options = {'model': model_name, 'contents': prompt}
+    if config is not None:
+        options['config'] = config
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    try:
         future = executor.submit(
             _client.models.generate_content,
-            model=model_name,
-            contents=prompt,
+            **options,
         )
         try:
             return future.result(timeout=TIMEOUT_SECONDS)
         except concurrent.futures.TimeoutError as exc:
+            future.cancel()
             raise TimeoutError(
                 f'AI generation timed out after {TIMEOUT_SECONDS} seconds. Try again later.'
             ) from exc
+    finally:
+        executor.shutdown(wait=False, cancel_futures=True)
 
 
-def generate_response(prompt):
+def generate_response(prompt, *, config=None, raise_on_error=False):
     if not _client:
-        return 'AI service unavailable. Configure GEMINI_API_KEY and restart the app.'
+        return _failure('AI service unavailable. Configure GEMINI_API_KEY and restart the app.', raise_on_error)
 
     if not prompt or not str(prompt).strip():
-        return 'Please provide text for the AI to process.'
+        return _failure('Please provide text for the AI to process.', raise_on_error)
 
     last_error = None
     for candidate_model in MODELS:
         try:
-            response = _generate_with_model(candidate_model, prompt)
+            response = _generate_with_model(candidate_model, prompt, config=config)
             text = _extract_text_from_response(response)
             if text:
                 return text
             last_error = RuntimeError(f'Model {candidate_model} returned an empty response.')
         except TimeoutError as error:
-            return str(error)
+            return _failure(str(error), raise_on_error)
         except genai_errors.ClientError as error:
             last_error = error
             error_text = str(error)
             if _is_rate_limit_error(error_text):
                 retry_seconds = _parse_retry_seconds(error_text)
                 if retry_seconds:
-                    return (
+                    return _failure((
                         f'Quota exceeded for model {candidate_model}. '
                         f'Please retry in {int(retry_seconds)} seconds or check billing/limits.'
-                    )
-                return (
+                    ), raise_on_error)
+                return _failure((
                     f'Quota or rate-limit exceeded for model {candidate_model}. '
                     'Check your plan and billing details.'
-                )
+                ), raise_on_error)
         except genai_errors.ServerError as error:
             last_error = error
             error_text = str(error)
             if _is_rate_limit_error(error_text):
                 retry_seconds = _parse_retry_seconds(error_text)
                 if retry_seconds:
-                    return (
+                    return _failure((
                         f'Service busy for model {candidate_model}. '
                         f'Please retry in {int(retry_seconds)} seconds.'
-                    )
+                    ), raise_on_error)
             continue
         except Exception as error:
             last_error = error
@@ -130,17 +150,17 @@ def generate_response(prompt):
             if _is_rate_limit_error(error_text):
                 retry_seconds = _parse_retry_seconds(error_text)
                 if retry_seconds:
-                    return (
+                    return _failure((
                         f'Quota exceeded for model {candidate_model}. '
                         f'Please retry in {int(retry_seconds)} seconds or check billing/limits.'
-                    )
-                return (
+                    ), raise_on_error)
+                return _failure((
                     f'Quota or rate-limit exceeded for model {candidate_model}. '
                     'Check your plan and billing details.'
-                )
+                ), raise_on_error)
             continue
 
     if last_error:
         logging.getLogger(__name__).warning('Gemini request failed: %s', type(last_error).__name__)
-        return 'AI service temporarily unavailable. Please try again.'
-    return 'Error generating AI content: unknown error'
+        return _failure('AI service temporarily unavailable. Please try again.', raise_on_error)
+    return _failure('Error generating AI content: unknown error', raise_on_error)

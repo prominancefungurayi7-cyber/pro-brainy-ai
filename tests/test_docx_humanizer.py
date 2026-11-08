@@ -7,6 +7,7 @@ from docx import Document
 
 from app import app
 from models.user import db
+from services.gemini_service import GeminiGenerationError
 from tests.helpers import csrf_token, register_client
 
 
@@ -40,11 +41,13 @@ class DocxHumanizerTests(unittest.TestCase):
 
     @patch('services.humanizer_service.generate_response')
     def test_docx_preserves_order_headings_and_table(self, mock_ai):
-        def rewrite(prompt):
+        def rewrite(prompt, **kwargs):
             source = json.loads(prompt.split('\n')[-1])
             self.assertNotIn('Introduction', prompt)
             self.assertNotIn('Table heading', prompt)
             self.assertNotIn('Manually bold heading', prompt)
+            self.assertEqual(kwargs['config']['response_mime_type'], 'application/json')
+            self.assertTrue(kwargs['raise_on_error'])
             return json.dumps([{'id': item['id'], 'text': item['text'] + ' Humanized.'} for item in source])
 
         mock_ai.side_effect = rewrite
@@ -64,14 +67,35 @@ class DocxHumanizerTests(unittest.TestCase):
         self.assertEqual(result.paragraphs[3].text, 'Original last body. Humanized.')
         self.assertEqual(result.paragraphs[0].style.name, 'Heading 1')
 
-    @patch('services.humanizer_service.generate_response', return_value='AI service unavailable')
+    @patch('services.humanizer_service.generate_response', side_effect=GeminiGenerationError('AI service unavailable'))
     def test_docx_does_not_return_partial_file_on_ai_failure(self, _mock_ai):
         response = self.client.post('/humanizer', data={
             '_csrf_token': csrf_token(self.client),
             'file': (BytesIO(sample_document()), 'sample.docx'),
         }, content_type='multipart/form-data')
         self.assertEqual(response.status_code, 422)
+        self.assertIn(b'AI service unavailable', response.data)
         self.assertNotIn('attachment', response.headers.get('Content-Disposition', ''))
+
+    @patch('services.humanizer_service.generate_response')
+    def test_docx_recovers_from_malformed_batch_by_rewriting_smaller_groups(self, mock_ai):
+        def rewrite(prompt, **_kwargs):
+            source = json.loads(prompt.split('\n')[-1])
+            if len(source) > 1:
+                return 'I cannot format this batch.'
+            return json.dumps([{'id': 0, 'text': source[0]['text'] + ' Revised.'}])
+
+        mock_ai.side_effect = rewrite
+        response = self.client.post('/humanizer', data={
+            '_csrf_token': csrf_token(self.client),
+            'file': (BytesIO(sample_document()), 'sample.docx'),
+        }, content_type='multipart/form-data')
+        self.assertEqual(response.status_code, 200)
+        self.assertGreater(mock_ai.call_count, 1)
+        result = Document(BytesIO(response.data))
+        self.assertEqual(result.paragraphs[0].text, 'Introduction')
+        self.assertEqual(result.paragraphs[2].text, 'Original first body. Revised.')
+        self.assertEqual(result.tables[0].cell(1, 0).text, 'Original table body. Revised.')
 
     def test_invalid_docx_is_rejected(self):
         response = self.client.post('/humanizer', data={
