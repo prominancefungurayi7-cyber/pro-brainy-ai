@@ -1,14 +1,14 @@
 services:
   - type: web
     name: pro-brainy-ai-toolkit
-    env: python
+    runtime: python
     region: oregon
     plan: free
     branch: main
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app --workers 2 --bind 0.0.0.0:$PORT
     healthCheckPath: /health
-    autoDeploy: true
+    autoDeployTrigger: checksPass
     envVars:
       - key: PYTHON_VERSION
         value: 3.12
@@ -16,3 +16,12 @@ services:
         sync: false
       - key: SECRET_KEY
         generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pro-brainy-ai-db
+          property: connectionString
+
+databases:
+  - name: pro-brainy-ai-db
+    region: oregon
+    plan: free

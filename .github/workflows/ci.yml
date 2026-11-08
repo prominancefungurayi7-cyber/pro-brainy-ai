@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Run tests
+        env:
+          FLASK_TESTING: '1'
+          SECRET_KEY: ci-test-secret-key
+          DATABASE_URL: 'sqlite:///:memory:'
+          GEMINI_API_KEY: ''
+        run: python -m unittest discover -s tests -t .
