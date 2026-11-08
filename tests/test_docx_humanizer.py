@@ -1,5 +1,6 @@
 import base64
 import json
+import threading
 import unittest
 from io import BytesIO
 from unittest.mock import patch
@@ -93,6 +94,41 @@ class DocxHumanizerTests(unittest.TestCase):
         document = Document(BytesIO(data))
         self.assertEqual(document.paragraphs[0].text, 'Introduction')
         self.assertEqual(document.paragraphs[2].text, 'Original first body. Revised.')
+
+    @patch('routes.humanizer_routes.STREAM_KEEPALIVE_SECONDS', 0.02)
+    @patch('services.humanizer_service.generate_response')
+    def test_stream_stays_open_while_first_ai_batch_is_waiting(self, mock_ai):
+        release_ai = threading.Event()
+        ai_started = threading.Event()
+
+        def delayed_rewrite(prompt, **_kwargs):
+            ai_started.set()
+            self.assertTrue(release_ai.wait(2), 'The test did not release the AI batch')
+            source = json.loads(prompt.split('\n')[-1])
+            return json.dumps([{'id': item['id'], 'text': item['text'] + ' Revised.'} for item in source])
+
+        mock_ai.side_effect = delayed_rewrite
+        response = self.client.post('/humanizer', data={
+            '_csrf_token': csrf_token(self.client),
+            'file': (BytesIO(sample_document()), 'sample.docx'),
+        }, content_type='multipart/form-data', headers={'Accept': 'text/event-stream'}, buffered=False)
+        frames = iter(response.response)
+        try:
+            initial = []
+            while len(initial) < 3:
+                frame = next(frames).decode()
+                if frame.startswith('data: '):
+                    initial.append(frame)
+            self.assertEqual([json.loads(frame[6:])['percent'] for frame in initial], [0, 5, 10])
+            self.assertTrue(ai_started.wait(1))
+            self.assertEqual(next(frames), b': keep-alive\n\n')
+        finally:
+            release_ai.set()
+        rest = b''.join(frames).decode()
+        events = [json.loads(frame[6:]) for frame in rest.split('\n\n') if frame.startswith('data: ')]
+        self.assertEqual(events[-1], {'type': 'complete', 'percent': 100})
+        file_bytes = b''.join(base64.b64decode(event['data']) for event in events if event['type'] == 'file-chunk')
+        self.assertEqual(Document(BytesIO(file_bytes)).paragraphs[2].text, 'Original first body. Revised.')
 
     @patch('services.humanizer_service.generate_response', side_effect=GeminiGenerationError('AI service unavailable'))
     def test_stream_failure_does_not_send_partial_word_file(self, _mock_ai):

@@ -1,6 +1,8 @@
 import base64
 import json
 import logging
+from queue import Empty, Queue
+from threading import Thread
 from io import BytesIO
 from flask import Blueprint, Response, render_template, request, send_file, stream_with_context
 from werkzeug.utils import secure_filename
@@ -11,6 +13,7 @@ import PyPDF2
 
 
 humanizer_bp = Blueprint('humanizer', __name__)
+STREAM_KEEPALIVE_SECONDS = 15
 
 
 def _event(payload):
@@ -18,8 +21,31 @@ def _event(payload):
 
 
 def _stream_docx(content, download_name):
+    updates = Queue()
+
+    def process_document():
+        try:
+            for update in humanize_docx_progress(content):
+                updates.put(update)
+        except Exception as exc:
+            updates.put(exc)
+        finally:
+            updates.put(None)
+
+    # Gemini can spend longer than a proxy's idle timeout on one batch.
+    # Keep the response active while that work runs in a separate thread.
+    Thread(target=process_document, daemon=True, name='docx-humanizer').start()
     try:
-        for update in humanize_docx_progress(content):
+        while True:
+            try:
+                update = updates.get(timeout=STREAM_KEEPALIVE_SECONDS)
+            except Empty:
+                yield ': keep-alive\n\n'
+                continue
+            if update is None:
+                break
+            if isinstance(update, Exception):
+                raise update
             if update['type'] == 'progress':
                 yield _event(update)
                 continue
