@@ -28,7 +28,7 @@ class AppRouteTests(unittest.TestCase):
     def test_health_check(self):
         response = self.client.get('/health')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get_json(), {'status': 'ok'})
+        self.assertEqual(response.get_json(), {'status': 'ok', 'gemini': 'configured'})
 
     @patch('services.gemini_service._client', None)
     def test_health_check_reports_missing_gemini_key(self):

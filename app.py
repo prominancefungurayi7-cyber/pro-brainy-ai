@@ -107,7 +107,7 @@ def home():
 def health():
     if not is_gemini_configured():
         return jsonify({'status': 'unavailable', 'gemini': 'missing_api_key'}), 503
-    return jsonify({'status': 'ok'}), 200
+    return jsonify({'status': 'ok', 'gemini': 'configured'}), 200
 
 
 @app.errorhandler(404)
