@@ -9,7 +9,7 @@ from google.genai import types
 
 from config import Config
 
-api_key = Config.GEMINI_API_KEY
+api_key = (Config.GEMINI_API_KEY or '').strip()
 DEFAULT_MODEL = 'gemini-2.5-flash'
 FALLBACK_MODELS = ['gemini-2.0-flash', 'gemini-flash-latest']
 MODELS = [DEFAULT_MODEL] + FALLBACK_MODELS
@@ -21,6 +21,16 @@ if api_key:
         api_key=api_key,
         http_options=types.HttpOptions(timeout=TIMEOUT_SECONDS * 1000),
     )
+elif not Config.TESTING:
+    logging.getLogger(__name__).error(
+        'GEMINI_API_KEY is missing from this process; all AI tools are unavailable. '
+        'Set it on the running service and deploy the change.'
+    )
+
+
+def is_gemini_configured():
+    """Report whether this process can make Gemini requests without exposing its key."""
+    return _client is not None
 
 
 class GeminiGenerationError(RuntimeError):
@@ -104,7 +114,7 @@ def _generate_with_model(model_name, prompt, config=None):
 
 def generate_response(prompt, *, config=None, raise_on_error=False):
     if not _client:
-        return _failure('AI service unavailable. Configure GEMINI_API_KEY and restart the app.', raise_on_error)
+        return _failure('AI service unavailable. Please try again later.', raise_on_error)
 
     if not prompt or not str(prompt).strip():
         return _failure('Please provide text for the AI to process.', raise_on_error)

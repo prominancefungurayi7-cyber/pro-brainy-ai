@@ -16,8 +16,8 @@ The GitHub Actions workflow at `.github/workflows/ci.yml` runs the tests for pus
 
 1. Push this repository to GitHub with `.env` excluded. Never commit API keys or database credentials.
 2. In Render, connect your GitHub account and create a new **Blueprint** from this repository's `main` branch. Use the root `render.yaml` file.
-3. When Render asks for `GEMINI_API_KEY`, paste the API key into Render's secret field. Render generates `SECRET_KEY`. The deployed app uses SQLite through `DATABASE_URL`.
-4. After the deployment succeeds, open the service URL and verify `/health` returns `{"status":"ok"}`. Check the GitHub Actions result on the deployed commit.
+3. On the **existing web service**, open **Environment**, set `GEMINI_API_KEY` to your Gemini API key, and select **Save and deploy**. Editing the local `.env` or syncing an existing Blueprint does not update this secret on Render. Render generates `SECRET_KEY`. The deployed app uses SQLite through `DATABASE_URL`.
+4. After the deployment succeeds, open the service URL and verify `/health` returns HTTP 200 with `{"status":"ok"}`. HTTP 503 with `{"status":"unavailable","gemini":"missing_api_key"}` means the running service has no Gemini key. Check the GitHub Actions result on the deployed commit; CI uses a placeholder key and does not verify the live secret.
 
 The deployment uses SQLite only. **SQLite data on Render's free web service disappears on every restart or redeploy**, so users may need to register again. Signup limits, login throttles, and tool usage counters also reset. To retain accounts and enforce paid entitlements reliably, use a durable database or a paid Render service with a persistent disk before charging users. Add verified email ownership, a payment provider with server-side webhook verification, and an account recovery process before a paid launch. Device and name checks alone cannot prevent fraud. Switching to Postgres later requires a data migration; it does not happen automatically.
 

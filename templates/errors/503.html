@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="auth-container">
+    <h1>Writing tools are temporarily unavailable</h1>
+    <p class="lead">Please try again later. This request was not counted toward your tool limit.</p>
+    <p><a class="btn" href="{{ url_for('home') }}">Go home</a></p>
+</section>
+{% endblock %}

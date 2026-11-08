@@ -8,6 +8,7 @@ from flask_login import LoginManager, current_user, login_required
 from config import Config
 from models.user import User, db
 from services.auth_security import record_tool_use, tool_limit_reached
+from services.gemini_service import is_gemini_configured
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -52,6 +53,8 @@ def protect_tools_and_forms():
             abort(400, description='Invalid form token. Refresh the page and try again.')
     if request.blueprint in PROTECTED_BLUEPRINTS and request.method == 'POST':
         if request.endpoint != 'humanizer.humanizer_download':
+            if not is_gemini_configured():
+                abort(503, description='AI tools are temporarily unavailable.')
             if tool_limit_reached(current_user.id):
                 abort(429, description='Tool limit reached. Please try again later.')
             record_tool_use(current_user.id)
@@ -102,6 +105,8 @@ def home():
 
 @app.route('/health')
 def health():
+    if not is_gemini_configured():
+        return jsonify({'status': 'unavailable', 'gemini': 'missing_api_key'}), 503
     return jsonify({'status': 'ok'}), 200
 
 
@@ -113,6 +118,11 @@ def page_not_found(error):
 @app.errorhandler(500)
 def server_error(error):
     return render_template('errors/500.html'), 500
+
+
+@app.errorhandler(503)
+def service_unavailable(error):
+    return render_template('errors/503.html'), 503
 
 
 if __name__ == '__main__':

@@ -21,5 +21,5 @@ jobs:
           FLASK_TESTING: '1'
           SECRET_KEY: ci-test-secret-key
           DATABASE_URL: 'sqlite:///:memory:'
-          GEMINI_API_KEY: ''
+          GEMINI_API_KEY: ci-placeholder-key
         run: python -m unittest discover -s tests -t .

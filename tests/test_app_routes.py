@@ -24,10 +24,17 @@ class AppRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'All Your AI Writing Tools In One Place', response.data)
 
+    @patch('services.gemini_service._client', object())
     def test_health_check(self):
         response = self.client.get('/health')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json(), {'status': 'ok'})
+
+    @patch('services.gemini_service._client', None)
+    def test_health_check_reports_missing_gemini_key(self):
+        response = self.client.get('/health')
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.get_json(), {'status': 'unavailable', 'gemini': 'missing_api_key'})
 
     def test_unknown_route_returns_404(self):
         response = self.client.get('/does-not-exist')
@@ -79,6 +86,16 @@ class ServiceIntegrationTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Corrected text.', response.data)
         mock_generate.assert_called_once()
+
+    @patch('app.record_tool_use')
+    @patch('services.gemini_service._client', None)
+    def test_missing_gemini_key_does_not_charge_tool_use(self, record_use):
+        response = self.client.post('/grammar', data={
+            '_csrf_token': csrf_token(self.client), 'text': 'Please fix this sentence.'
+        })
+        self.assertEqual(response.status_code, 503)
+        self.assertIn(b'temporarily unavailable', response.data)
+        record_use.assert_not_called()
 
     @patch('services.humanizer_service.generate_response')
     def test_humanizer_route_uses_service(self, mock_generate):
