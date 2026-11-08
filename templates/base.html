@@ -3,44 +3,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pro Brainy AI Toolkit</title>
+    <meta name="theme-color" content="#f5f6fb">
+    <title>{% block title %}Pro Brainy AI{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script>
+        try { if (localStorage.getItem('pro-brainy-sidebar') === 'collapsed') document.documentElement.classList.add('sidebar-collapsed'); } catch (error) {}
+    </script>
 </head>
 <body>
-    <nav>
-        <div class="logo">Pro Brainy AI</div>
-        <ul>
-            <li><a href="{{ url_for('home') }}">Home</a></li>
-            <li><a href="{{ url_for('humanizer.humanizer') }}">Humanizer</a></li>
-            <li><a href="{{ url_for('detector.detector') }}">Detector</a></li>
-            <li><a href="{{ url_for('grammar.grammar') }}">Grammar Fixer</a></li>
-            <li><a href="{{ url_for('essay.essay_generator') }}">Essay</a></li>
-            <li><a href="{{ url_for('composition.composition_writer') }}">Composition</a></li>
-            <li><a href="{{ url_for('summarizer.summarizer') }}">Summarizer</a></li>
-            <li><a href="{{ url_for('resume.resume_generator') }}">Resume</a></li>
-            <li><a href="{{ url_for('ppt.ppt_generator') }}">Presentation</a></li>
-            {% if current_user.is_authenticated %}
-                <li><a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a></li>
-                <li><form method="POST" action="{{ url_for('auth.logout') }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token }}"><button type="submit">Logout</button></form></li>
-            {% else %}
-                <li><a href="{{ url_for('auth.login') }}">Login</a></li>
-                <li><a href="{{ url_for('auth.register') }}">Register</a></li>
-            {% endif %}
-        </ul>
-    </nav>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <button class="sidebar-backdrop" id="sidebar-backdrop" type="button" aria-label="Close navigation" tabindex="-1"></button>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="flash-messages">
-                {% for category, message in messages %}
-                    <div class="flash {{ category }}">{{ message }}</div>
-                {% endfor %}
+    <div class="app-shell">
+        <aside class="sidebar" id="app-sidebar" aria-label="Main navigation">
+            <div class="sidebar-top">
+                <a class="brand" href="{{ url_for('home') }}" aria-label="Pro Brainy AI home" title="Pro Brainy AI home">
+                    <span class="brand-symbol" aria-hidden="true">✦</span>
+                    <span class="brand-copy"><strong>Pro Brainy</strong><small>AI WORKSPACE</small></span>
+                </a>
+                <button class="sidebar-close" id="sidebar-close" type="button" aria-label="Close sidebar">×</button>
             </div>
-        {% endif %}
-    {% endwith %}
 
-    <main>
-        {% block content %}{% endblock %}
-    </main>
+            <div class="sidebar-scroll">
+                <div class="nav-section">
+                    <p class="nav-heading">Workspace</p>
+                    <nav class="nav-list" aria-label="Workspace">
+                        <a class="nav-link{% if request.endpoint == 'home' %} is-active{% endif %}" href="{{ url_for('home') }}" aria-label="Home" title="Home"{% if request.endpoint == 'home' %} aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">⌂</span><span class="nav-text">Home</span></a>
+                        {% if current_user.is_authenticated %}
+                        <a class="nav-link{% if request.blueprint == 'dashboard' %} is-active{% endif %}" href="{{ url_for('dashboard.dashboard') }}" aria-label="Dashboard" title="Dashboard"{% if request.blueprint == 'dashboard' %} aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">▦</span><span class="nav-text">Dashboard</span></a>
+                        {% endif %}
+                    </nav>
+                </div>
+
+                <div class="nav-section">
+                    <p class="nav-heading">Writing tools</p>
+                    <nav class="nav-list" aria-label="Writing tools">
+                        <a class="nav-link{% if request.blueprint == 'humanizer' %} is-active{% endif %}" href="{{ url_for('humanizer.humanizer') }}" aria-label="AI Humanizer" title="AI Humanizer"{% if request.blueprint == 'humanizer' %} aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">✧</span><span class="nav-text">AI Humanizer</span></a>
+                        <a class="nav-link{% if request.blueprint == 'detector' %} is-active{% endif %}" href="{{ url_for('detector.detector') }}" aria-label="AI Detector" title="AI Detector"{% if request.blueprint == 'detector' %} aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">◎</span><span class="nav-text">AI Detector</span></a>
+                        <a class="nav-link{% if request.blueprint == 'grammar' %} is-active{% endif %}" href="{{ url_for('grammar.grammar') }}" aria-label="Grammar Fixer" title="Grammar Fixer"{% if request.blueprint == 'grammar' %} aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">Aa</span><span class="nav-text">Grammar Fixer</span></a>
+                        <a class="nav-link{% if request.blueprint == 'essay' %} is-active{% endif %}" href="{{ url_for('essay.essay_generator') }}" aria-label="Essay Generator" title="Essay Generator"{% if request.blueprint == 'essay' %} aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">≡</span><span class="nav-text">Essay Generator</span></a>
+                        <a class="nav-link{% if request.blueprint == 'composition' %} is-active{% endif %}" href="{{ url_for('composition.composition_writer') }}" aria-label="Composition Writer" title="Composition Writer"{% if request.blueprint == 'composition' %} aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">✎</span><span class="nav-text">Composition Writer</span></a>
+                        <a class="nav-link{% if request.blueprint == 'summarizer' %} is-active{% endif %}" href="{{ url_for('summarizer.summarizer') }}" aria-label="Summarizer" title="Summarizer"{% if request.blueprint == 'summarizer' %} aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">☷</span><span class="nav-text">Summarizer</span></a>
+                        <a class="nav-link{% if request.blueprint == 'resume' %} is-active{% endif %}" href="{{ url_for('resume.resume_generator') }}" aria-label="Resume Builder" title="Resume Builder"{% if request.blueprint == 'resume' %} aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">▤</span><span class="nav-text">Resume Builder</span></a>
+                        <a class="nav-link{% if request.blueprint == 'ppt' %} is-active{% endif %}" href="{{ url_for('ppt.ppt_generator') }}" aria-label="Presentations" title="Presentations"{% if request.blueprint == 'ppt' %} aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">▣</span><span class="nav-text">Presentations</span></a>
+                    </nav>
+                </div>
+            </div>
+
+            <div class="sidebar-bottom">
+                {% if current_user.is_authenticated %}
+                <div class="account-card" title="Signed in as {{ current_user.username }}">
+                    <span class="avatar" aria-hidden="true">{{ current_user.username[:1]|upper }}</span>
+                    <span class="account-copy"><strong>{{ current_user.username }}</strong><small>{{ current_user.subscription|capitalize }} account</small></span>
+                </div>
+                <form class="logout-form" method="POST" action="{{ url_for('auth.logout') }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+                    <button class="nav-link logout-button" type="submit" title="Log out" aria-label="Log out"><span class="nav-icon" aria-hidden="true">↪</span><span class="nav-text">Log out</span></button>
+                </form>
+                {% else %}
+                <nav class="nav-list" aria-label="Account">
+                    <a class="nav-link{% if request.endpoint == 'auth.login' %} is-active{% endif %}" href="{{ url_for('auth.login') }}" aria-label="Log in" title="Log in"{% if request.endpoint == 'auth.login' %} aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">→</span><span class="nav-text">Log in</span></a>
+                    <a class="nav-link signup-link{% if request.endpoint == 'auth.register' %} is-active{% endif %}" href="{{ url_for('auth.register') }}" aria-label="Create account" title="Create account"{% if request.endpoint == 'auth.register' %} aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">＋</span><span class="nav-text">Create account</span></a>
+                </nav>
+                {% endif %}
+                <p class="sidebar-credit">Write with clarity. Create with confidence.</p>
+            </div>
+        </aside>
+
+        <div class="app-main">
+            <header class="topbar">
+                <div class="topbar-start">
+                    <button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-controls="app-sidebar" aria-expanded="true" aria-label="Toggle sidebar" title="Toggle sidebar">
+                        <span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
+                    </button>
+                    <div class="topbar-title"><span class="topbar-kicker">PRO BRAINY AI</span><strong>{% block topbar_title %}Your writing workspace{% endblock %}</strong></div>
+                </div>
+                <div class="topbar-end">
+                    <span class="topbar-status"><span class="status-dot" aria-hidden="true"></span>AI tools ready</span>
+                    {% if current_user.is_authenticated %}
+                    <span class="topbar-avatar" title="{{ current_user.username }}" aria-label="Signed in as {{ current_user.username }}">{{ current_user.username[:1]|upper }}</span>
+                    {% else %}
+                    <a class="topbar-cta" href="{{ url_for('auth.register') }}">Get started <span aria-hidden="true">↗</span></a>
+                    {% endif %}
+                </div>
+            </header>
+
+            <main id="main-content" class="page-content">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                    <div class="flash-messages" role="status" aria-live="polite">
+                        {% for category, message in messages %}
+                        <div class="flash {{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                {% endwith %}
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+    <script defer src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
 </body>
 </html>
