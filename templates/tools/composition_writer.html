@@ -6,6 +6,7 @@
     <h1>Composition Writer</h1>
     <p class="lead">Generate a school-style composition matched to the requested education level.</p>
     <form method="POST">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
         <div class="form-group">
             <label for="topic">Composition topic</label>
             <input id="topic" name="topic" type="text" placeholder="Describe a memorable event or topic" required>

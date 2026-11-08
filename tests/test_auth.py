@@ -1,12 +1,14 @@
 import unittest
 
 from app import app
-from models.user import User, db
+from models.user import SignupSignal, User, db
+from tests.helpers import csrf_token
 
 
 class AuthRouteTests(unittest.TestCase):
     def setUp(self):
         self.client = app.test_client()
+        self.client.get('/register')
         with app.app_context():
             db.create_all()
 
@@ -22,6 +24,7 @@ class AuthRouteTests(unittest.TestCase):
                 'username': 'testuser',
                 'email': 'test@example.com',
                 'password': 'securepass123',
+                '_csrf_token': csrf_token(self.client),
             },
             follow_redirects=False,
         )
@@ -35,7 +38,7 @@ class AuthRouteTests(unittest.TestCase):
         dashboard_response = self.client.get('/dashboard', follow_redirects=False)
         self.assertEqual(dashboard_response.status_code, 200)
 
-        logout_response = self.client.get('/logout', follow_redirects=False)
+        logout_response = self.client.post('/logout', data={'_csrf_token': csrf_token(self.client)}, follow_redirects=False)
         self.assertEqual(logout_response.status_code, 302)
 
         protected_response = self.client.get('/dashboard', follow_redirects=False)
@@ -48,20 +51,98 @@ class AuthRouteTests(unittest.TestCase):
                 'username': 'testuser',
                 'email': 'short@example.com',
                 'password': 'short',
+                '_csrf_token': csrf_token(self.client),
             },
             follow_redirects=True,
         )
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b'Password must be at least 8 characters long.', response.data)
+        self.assertIn(b'Password must be at least 12 characters long.', response.data)
 
     def test_login_with_invalid_credentials(self):
         response = self.client.post(
             '/login',
-            data={'email': 'missing@example.com', 'password': 'wrongpassword'},
+            data={'email': 'missing@example.com', 'password': 'wrongpassword', '_csrf_token': csrf_token(self.client)},
             follow_redirects=True,
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Invalid login credentials', response.data)
+
+    def test_tool_requires_login(self):
+        for path in ('/humanizer', '/detector', '/grammar', '/essay', '/composition', '/summarizer', '/resume', '/ppt'):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 302)
+                self.assertIn('/login', response.headers['Location'])
+
+    def test_post_requires_csrf_token(self):
+        response = self.client.post('/register', data={
+            'username': 'missingtoken', 'email': 'missing@example.com', 'password': 'securepass123',
+        })
+        self.assertEqual(response.status_code, 400)
+
+    def test_same_name_on_same_browser_is_blocked(self):
+        self.client.post('/register', data={
+            '_csrf_token': csrf_token(self.client),
+            'username': 'Same Name', 'email': 'one@example.com', 'password': 'securepass123',
+        })
+        self.client.post('/logout', data={'_csrf_token': csrf_token(self.client)})
+        self.client.get('/register')
+        response = self.client.post('/register', data={
+            '_csrf_token': csrf_token(self.client),
+            'username': '  same   name ', 'email': 'two@example.com', 'password': 'securepass123',
+        }, follow_redirects=True)
+        self.assertIn(b'Registration limit reached', response.data)
+        with app.app_context():
+            self.assertEqual(User.query.count(), 1)
+
+    def test_login_is_throttled_after_repeated_failures(self):
+        for _ in range(5):
+            response = self.client.post('/login', data={
+                '_csrf_token': csrf_token(self.client),
+                'email': 'absent@example.com', 'password': 'wrong-password',
+            })
+            self.assertEqual(response.status_code, 302)
+        response = self.client.post('/login', data={
+            '_csrf_token': csrf_token(self.client),
+            'email': 'absent@example.com', 'password': 'wrong-password',
+        })
+        self.assertEqual(response.status_code, 429)
+
+    def test_browser_signup_limit(self):
+        for index in range(3):
+            response = self.client.post('/register', data={
+                '_csrf_token': csrf_token(self.client),
+                'username': f'Person {index}',
+                'email': f'person{index}@example.com',
+                'password': 'securepass123',
+            })
+            self.assertEqual(response.status_code, 302)
+            self.client.post('/logout', data={'_csrf_token': csrf_token(self.client)})
+            self.client.get('/register')
+        response = self.client.post('/register', data={
+            '_csrf_token': csrf_token(self.client),
+            'username': 'Person 4', 'email': 'person4@example.com',
+            'password': 'securepass123',
+        }, follow_redirects=True)
+        self.assertIn(b'Registration limit reached', response.data)
+
+    def test_same_name_across_browsers_is_flagged_not_blocked(self):
+        self.client.post('/register', data={
+            '_csrf_token': csrf_token(self.client),
+            'username': 'Common Name', 'email': 'first@example.com',
+            'password': 'securepass123',
+        })
+        other = app.test_client()
+        other.get('/register')
+        response = other.post('/register', data={
+            '_csrf_token': csrf_token(other),
+            'username': 'common  name', 'email': 'second@example.com',
+            'password': 'securepass123',
+        })
+        self.assertEqual(response.status_code, 302)
+        with app.app_context():
+            self.assertEqual(User.query.count(), 2)
+            self.assertTrue(SignupSignal.query.filter_by(user_id=2).one().duplicate_name_seen)
 
 
 if __name__ == '__main__':

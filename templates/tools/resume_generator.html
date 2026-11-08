@@ -6,6 +6,7 @@
     <h1>Resume Generator</h1>
     <p class="lead">Build a polished resume summary from your experience and skills.</p>
     <form method="POST">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
         <div class="form-group">
             <label for="name">Full name</label>
             <input id="name" name="name" type="text" placeholder="Your name" required>

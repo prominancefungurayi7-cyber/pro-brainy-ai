@@ -21,7 +21,7 @@
             <li><a href="{{ url_for('ppt.ppt_generator') }}">Presentation</a></li>
             {% if current_user.is_authenticated %}
                 <li><a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a></li>
-                <li><a href="{{ url_for('auth.logout') }}">Logout</a></li>
+                <li><form method="POST" action="{{ url_for('auth.logout') }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token }}"><button type="submit">Logout</button></form></li>
             {% else %}
                 <li><a href="{{ url_for('auth.login') }}">Login</a></li>
                 <li><a href="{{ url_for('auth.register') }}">Register</a></li>

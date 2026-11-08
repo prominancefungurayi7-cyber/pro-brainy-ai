@@ -6,6 +6,7 @@
     <h1>Presentation Generator</h1>
     <p class="lead">Create a concise slide outline with titles and key talking points.</p>
     <form method="POST">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
         <div class="form-group">
             <label for="topic">Presentation topic</label>
             <input id="topic" name="topic" type="text" placeholder="Topic" required>

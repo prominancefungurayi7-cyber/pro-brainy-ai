@@ -2,11 +2,22 @@ import unittest
 from unittest.mock import patch
 
 from app import app
+from models.user import db
+from tests.helpers import csrf_token, register_client
 
 
 class AppRouteTests(unittest.TestCase):
     def setUp(self):
         self.client = app.test_client()
+        with app.app_context():
+            db.create_all()
+        register_client(self.client)
+        self.client.get('/dashboard')
+
+    def tearDown(self):
+        with app.app_context():
+            db.session.remove()
+            db.drop_all()
 
     def test_homepage_renders(self):
         response = self.client.get('/')
@@ -32,8 +43,6 @@ class AppRouteTests(unittest.TestCase):
             '/summarizer',
             '/resume',
             '/ppt',
-            '/login',
-            '/register',
         ]
         for route in routes:
             with self.subTest(route=route):
@@ -44,11 +53,19 @@ class AppRouteTests(unittest.TestCase):
 class ServiceIntegrationTests(unittest.TestCase):
     def setUp(self):
         self.client = app.test_client()
+        with app.app_context():
+            db.create_all()
+        register_client(self.client)
+
+    def tearDown(self):
+        with app.app_context():
+            db.session.remove()
+            db.drop_all()
 
     @patch('services.grammar_service.generate_response')
     def test_grammar_route_uses_service(self, mock_generate):
         mock_generate.return_value = 'Corrected text.'
-        response = self.client.post('/grammar', data={'text': 'bad grammer text'})
+        response = self.client.post('/grammar', data={'_csrf_token': csrf_token(self.client), 'text': 'bad grammer text'})
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Corrected text.', response.data)
         mock_generate.assert_called_once()
@@ -56,21 +73,33 @@ class ServiceIntegrationTests(unittest.TestCase):
     @patch('services.humanizer_service.generate_response')
     def test_humanizer_route_uses_service(self, mock_generate):
         mock_generate.return_value = 'Humanized text.'
-        response = self.client.post('/humanizer', data={'text': 'robotic text'})
+        response = self.client.post('/humanizer', data={'_csrf_token': csrf_token(self.client), 'text': 'robotic text'})
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Humanized text.', response.data)
 
     @patch('services.detector_service.generate_response')
     def test_detector_route_parses_probability(self, mock_generate):
         mock_generate.return_value = '{"ai_probability": 82, "explanation": "Formal tone."}'
-        response = self.client.post('/detector', data={'text': 'Sample text to analyze.'})
+        response = self.client.post('/detector', data={'_csrf_token': csrf_token(self.client), 'text': 'Sample text to analyze.'})
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'AI probability: 82%', response.data)
 
     def test_grammar_route_requires_text(self):
-        response = self.client.post('/grammar', data={'text': '   '})
+        response = self.client.post('/grammar', data={'_csrf_token': csrf_token(self.client), 'text': '   '})
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Please paste text to fix.', response.data)
+
+    @patch('services.grammar_service.generate_response', return_value='Corrected text.')
+    def test_free_tool_limit(self, _mock_generate):
+        previous = app.config['FREE_TOOL_DAILY_LIMIT']
+        app.config['FREE_TOOL_DAILY_LIMIT'] = 1
+        try:
+            first = self.client.post('/grammar', data={'_csrf_token': csrf_token(self.client), 'text': 'one'})
+            second = self.client.post('/grammar', data={'_csrf_token': csrf_token(self.client), 'text': 'two'})
+            self.assertEqual(first.status_code, 200)
+            self.assertEqual(second.status_code, 429)
+        finally:
+            app.config['FREE_TOOL_DAILY_LIMIT'] = previous
 
 
 if __name__ == '__main__':

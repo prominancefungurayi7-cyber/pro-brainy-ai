@@ -6,6 +6,7 @@
     <h1>Grammar Fixer</h1>
     <p class="lead">Paste your writing and automatically correct grammar, punctuation, and clarity.</p>
     <form method="POST">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
         <div class="form-group">
             <label for="text">Text to fix</label>
             <textarea id="text" name="text" rows="12" placeholder="Paste text here..." required></textarea>

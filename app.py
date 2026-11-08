@@ -1,13 +1,21 @@
 import os
+import hmac
+import secrets
 
-from flask import Flask, jsonify, render_template
-from flask_login import LoginManager
+from flask import Flask, abort, jsonify, render_template, request, session
+from flask_login import LoginManager, current_user
 
 from config import Config
 from models.user import User, db
+from services.auth_security import record_tool_use, tool_limit_reached
 
 app = Flask(__name__)
 app.config.from_object(Config)
+
+PROTECTED_BLUEPRINTS = {
+    'humanizer', 'detector', 'grammar', 'essay', 'composition',
+    'summarizer', 'resume', 'ppt',
+}
 
 if (
     not app.config['DEBUG']
@@ -24,6 +32,29 @@ login_manager = LoginManager()
 login_manager.login_view = 'auth.login'
 login_manager.login_message_category = 'warning'
 login_manager.init_app(app)
+
+
+@app.context_processor
+def inject_csrf_token():
+    if '_csrf_token' not in session:
+        session['_csrf_token'] = secrets.token_urlsafe(32)
+    return {'csrf_token': session['_csrf_token']}
+
+
+@app.before_request
+def protect_tools_and_forms():
+    if request.blueprint in PROTECTED_BLUEPRINTS and not current_user.is_authenticated:
+        return login_manager.unauthorized()
+    if request.method in {'POST', 'PUT', 'PATCH', 'DELETE'}:
+        expected = session.get('_csrf_token', '')
+        supplied = request.form.get('_csrf_token', '') or request.headers.get('X-CSRF-Token', '')
+        if not expected or not supplied or not hmac.compare_digest(expected, supplied):
+            abort(400, description='Invalid form token. Refresh the page and try again.')
+    if request.blueprint in PROTECTED_BLUEPRINTS and request.method == 'POST':
+        if request.endpoint != 'humanizer.humanizer_download':
+            if tool_limit_reached(current_user.id):
+                abort(429, description='Tool limit reached. Please try again later.')
+            record_tool_use(current_user.id)
 
 
 @login_manager.user_loader

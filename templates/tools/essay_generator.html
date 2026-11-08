@@ -6,6 +6,7 @@
     <h1>Essay Generator</h1>
     <p class="lead">Generate a structured essay outline and draft based on your topic.</p>
     <form method="POST">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
         <div class="form-group">
             <label for="topic">Topic</label>
             <input id="topic" name="topic" type="text" placeholder="Essay topic" required>

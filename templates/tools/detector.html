@@ -6,6 +6,7 @@
     <h1>AI Detector</h1>
     <p class="lead">Paste text or upload a .txt, .pdf, or .docx file to analyze whether it was written by AI.</p>
     <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
         <div class="form-group">
             <label for="text">Text to analyze</label>
             <textarea id="text" name="text" rows="12" placeholder="Paste text here..."></textarea>
@@ -24,6 +25,7 @@
 
         {% if analyzed_text %}
         <form method="POST" action="{{ url_for('humanizer.humanizer') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
             <textarea name="text" hidden>{{ analyzed_text }}</textarea>
             <input type="hidden" name="orig_filename" value="{{ orig_filename if orig_filename else '' }}">
             <button type="submit">Humanize This Text</button>

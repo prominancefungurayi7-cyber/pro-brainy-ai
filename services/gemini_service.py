@@ -1,4 +1,5 @@
 import concurrent.futures
+import logging
 import re
 import time
 
@@ -140,5 +141,6 @@ def generate_response(prompt):
             continue
 
     if last_error:
-        return f'Error generating AI content: {last_error}'
+        logging.getLogger(__name__).warning('Gemini request failed: %s', type(last_error).__name__)
+        return 'AI service temporarily unavailable. Please try again.'
     return 'Error generating AI content: unknown error'
