@@ -28,7 +28,8 @@ def login():
         if user and check_password_hash(user.password, password):
             clear_login_attempts(email)
             session.clear()
-            login_user(user)
+            session.permanent = True
+            login_user(user, remember=True)
             flash('Welcome back!', 'success')
             return redirect(url_for('dashboard.dashboard'))
         record_failed_login(email)
@@ -70,7 +71,8 @@ def register():
     db.session.flush()
     record_signup(user, token)
     session.clear()
-    login_user(user)
+    session.permanent = True
+    login_user(user, remember=True)
     flash('Account created successfully.', 'success')
     return redirect(url_for('dashboard.dashboard'))
 
@@ -78,7 +80,7 @@ def register():
 @auth_bp.route('/logout', methods=['POST'])
 @login_required
 def logout():
-    logout_user()
     session.clear()
+    logout_user()
     flash('You have been logged out.', 'info')
     return redirect(url_for('home'))

@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from app import app
 from models.user import SignupSignal, User, db
@@ -73,6 +74,42 @@ class AuthRouteTests(unittest.TestCase):
                 response = self.client.get(path)
                 self.assertEqual(response.status_code, 302)
                 self.assertIn('/login', response.headers['Location'])
+
+    def test_one_login_opens_every_tool_and_restores_a_lost_session_cookie(self):
+        self.client.environ_base['wsgi.url_scheme'] = 'https'
+        register_response = self.client.post('/register', data={
+            '_csrf_token': csrf_token(self.client),
+            'username': 'Member', 'email': 'member@example.com', 'password': 'securepass123',
+        })
+        self.assertEqual(register_response.status_code, 302)
+        self.assertIsNotNone(self.client.get_cookie('remember_token'))
+        self.client.delete_cookie('session')
+        for path in ('/dashboard', '/humanizer', '/detector', '/grammar', '/essay',
+                     '/composition', '/summarizer', '/resume', '/ppt'):
+            with self.subTest(path=path):
+                self.assertEqual(self.client.get(path).status_code, 200)
+        logout = self.client.post('/logout', data={'_csrf_token': csrf_token(self.client)})
+        self.assertEqual(logout.status_code, 302)
+        self.assertEqual(self.client.get('/humanizer').status_code, 302)
+
+    def test_remember_cookie_is_secure_when_sessions_are_secure(self):
+        self.client.environ_base['wsgi.url_scheme'] = 'https'
+        with patch.dict(app.config, {
+            'SESSION_COOKIE_SECURE': True, 'REMEMBER_COOKIE_SECURE': True,
+        }):
+            response = self.client.post('/register', data={
+                '_csrf_token': csrf_token(self.client),
+                'username': 'Secure Member', 'email': 'secure@example.com', 'password': 'securepass123',
+            })
+        remember_header = next(header for header in response.headers.getlist('Set-Cookie')
+                               if header.startswith('remember_token='))
+        session_header = next(header for header in response.headers.getlist('Set-Cookie')
+                              if header.startswith('session='))
+        self.assertIn('Secure', remember_header)
+        self.assertIn('HttpOnly', remember_header)
+        self.assertIn('SameSite=Lax', remember_header)
+        self.assertIn('Secure', session_header)
+        self.assertIn('Expires=', session_header)
 
     def test_post_requires_csrf_token(self):
         response = self.client.post('/register', data={
