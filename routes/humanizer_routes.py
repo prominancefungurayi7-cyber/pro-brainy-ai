@@ -20,12 +20,12 @@ def _event(payload):
     return 'data: ' + json.dumps(payload, separators=(',', ':')) + '\n\n'
 
 
-def _stream_docx(content, download_name):
+def _stream_docx(content, download_name, voice_sample=None):
     updates = Queue()
 
     def process_document():
         try:
-            for update in humanize_docx_progress(content):
+            for update in humanize_docx_progress(content, voice_sample):
                 updates.put(update)
         except Exception as exc:
             updates.put(exc)
@@ -92,6 +92,7 @@ def humanizer():
     orig_filename = None
 
     if request.method == 'POST':
+        voice_sample = (request.form.get('voice_sample') or '').strip()[:1500]
         uploaded_file = request.files.get('file')
         if uploaded_file and uploaded_file.filename.lower().endswith('.docx'):
             content = uploaded_file.read()
@@ -99,7 +100,7 @@ def humanizer():
             download_name = f'{safe_name[:-5]}_humanized.docx'
             if 'text/event-stream' in request.headers.get('Accept', ''):
                 response = Response(
-                    stream_with_context(_stream_docx(content, download_name)),
+                    stream_with_context(_stream_docx(content, download_name, voice_sample)),
                     mimetype='text/event-stream',
                 )
                 response.headers['Cache-Control'] = 'no-store'
@@ -107,7 +108,7 @@ def humanizer():
                 response.headers['X-Content-Type-Options'] = 'nosniff'
                 return response
             try:
-                processed = humanize_docx(content)
+                processed = humanize_docx(content, voice_sample)
             except DocumentHumanizationError as exc:
                 return render_template('tools/humanizer.html', output=str(exc)), 422
             return send_file(
@@ -121,7 +122,7 @@ def humanizer():
         orig_filename = (uploaded_file.filename if uploaded_file and uploaded_file.filename else None)
 
         if user_text and user_text.strip():
-            output = humanize_text(user_text.strip())
+            output = humanize_text(user_text.strip(), voice_sample)
         else:
             output = 'Please paste text or upload a .txt, .pdf, or .docx file to humanize.'
 

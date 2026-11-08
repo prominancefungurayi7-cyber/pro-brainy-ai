@@ -62,7 +62,7 @@ class ToolServiceTests(unittest.TestCase):
         self.assertEqual(result, 'Natural text.')
         prompt = mock_generate.call_args[0][0]
         self.assertIn('AI text', prompt)
-        self.assertIn('Preserve the meaning and tone', prompt)
+        self.assertIn('Keep its meaning, facts, names, numbers, citations', prompt)
         self.assertNotIn('primary school', prompt.lower())
 
     @patch('services.resume_service.generate_response', return_value='Resume draft.')

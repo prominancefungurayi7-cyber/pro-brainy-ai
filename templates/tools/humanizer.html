@@ -7,11 +7,17 @@
 <div class="tool-container">
     <h1>AI Humanizer</h1>
     <p class="lead">Give your writing a more natural voice. Paste text or upload .txt and .pdf files. Upload a .docx to download an edited Word document with headings and document order preserved.</p>
+    <p>Review the rewrite for accuracy and your own voice. AI detection scores cannot verify authorship or guarantee a particular result.</p>
     <form id="humanizer-form" method="POST" enctype="multipart/form-data">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
         <div class="form-group">
             <label for="text">Text to humanize</label>
             <textarea id="text" name="text" rows="12" placeholder="Paste AI-generated text here..."></textarea>
+        </div>
+        <div class="form-group">
+            <label for="voice_sample">Your writing voice (optional)</label>
+            <textarea id="voice_sample" name="voice_sample" rows="4" maxlength="1500" placeholder="Paste a short paragraph you wrote yourself."></textarea>
+            <small>Use a sample on a different topic to guide the rhythm and tone.</small>
         </div>
         <div class="form-group">
             <label for="file">Upload file</label>

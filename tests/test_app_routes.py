@@ -120,9 +120,15 @@ class ServiceIntegrationTests(unittest.TestCase):
     @patch('services.humanizer_service.generate_response')
     def test_humanizer_route_uses_service(self, mock_generate):
         mock_generate.return_value = 'Humanized text.'
-        response = self.client.post('/humanizer', data={'_csrf_token': csrf_token(self.client), 'text': 'robotic text'})
+        response = self.client.post('/humanizer', data={
+            '_csrf_token': csrf_token(self.client), 'text': 'robotic text',
+            'voice_sample': 'I write in short, direct sentences.',
+        })
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Humanized text.', response.data)
+        prompt = mock_generate.call_args.args[0]
+        self.assertIn('I write in short, direct sentences.', prompt)
+        self.assertIn('robotic text', prompt)
 
     @patch('services.detector_service.generate_response')
     def test_detector_route_parses_probability(self, mock_generate):

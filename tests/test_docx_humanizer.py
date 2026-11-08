@@ -49,6 +49,7 @@ class DocxHumanizerTests(unittest.TestCase):
             self.assertNotIn('Table heading', prompt)
             self.assertNotIn('Manually bold heading', prompt)
             self.assertNotIn('primary school', prompt.lower())
+            self.assertIn('I keep my sentences short.', prompt)
             self.assertEqual(kwargs['config']['response_mime_type'], 'application/json')
             self.assertTrue(kwargs['raise_on_error'])
             return json.dumps([{'id': item['id'], 'text': item['text'] + ' Humanized.'} for item in source])
@@ -56,6 +57,7 @@ class DocxHumanizerTests(unittest.TestCase):
         mock_ai.side_effect = rewrite
         response = self.client.post('/humanizer', data={
             '_csrf_token': csrf_token(self.client),
+            'voice_sample': 'I keep my sentences short.',
             'file': (BytesIO(sample_document()), 'sample.docx'),
         }, content_type='multipart/form-data')
         self.assertEqual(response.status_code, 200)
@@ -72,12 +74,14 @@ class DocxHumanizerTests(unittest.TestCase):
     @patch('services.humanizer_service.generate_response')
     def test_stream_reports_measured_progress_and_downloads_valid_docx(self, mock_ai):
         def rewrite(prompt, **_kwargs):
+            self.assertIn('I use plain words.', prompt)
             source = json.loads(prompt.split('\n')[-1])
             return json.dumps([{'id': item['id'], 'text': item['text'] + ' Revised.'} for item in source])
 
         mock_ai.side_effect = rewrite
         response = self.client.post('/humanizer', data={
             '_csrf_token': csrf_token(self.client),
+            'voice_sample': 'I use plain words.',
             'file': (BytesIO(sample_document()), 'sample.docx'),
         }, content_type='multipart/form-data', headers={'Accept': 'text/event-stream'})
         self.assertEqual(response.status_code, 200)

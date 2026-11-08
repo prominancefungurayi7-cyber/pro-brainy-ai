@@ -6,7 +6,8 @@
 
 <div class="tool-container">
     <h1>AI Detector</h1>
-    <p class="lead">Paste text or upload a .txt, .pdf, or .docx file to analyze whether it was written by AI.</p>
+    <p class="lead">Paste text or upload a .txt, .pdf, or .docx file to review writing patterns that may resemble AI output.</p>
+    <p>Any percentage is Gemini's unvalidated estimate, not a reliable probability or proof of authorship.</p>
     <form method="POST" enctype="multipart/form-data">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
         <div class="form-group">
