@@ -9,6 +9,10 @@ import docx
 
 from services.gemini_service import GeminiGenerationError, generate_response
 
+MAX_DOCX_EDITABLE_PARAGRAPHS = 120
+MAX_DOCX_EDITABLE_CHARACTERS = 40_000
+MAX_DOCX_PARAGRAPH_CHARACTERS = 8_000
+
 
 def _voice_guidance(voice_sample=None, voice_profile=None):
     guidance = ''
@@ -70,7 +74,9 @@ def humanize_text(text, voice_sample=None, voice_profile=None, thorough=False):
     )
     candidates = []
     for attempt in range(2):
-        if attempt and candidates and not thorough:
+        if attempt and candidates and not thorough and any(
+            candidate != text.strip() for candidate in candidates
+        ):
             break
         try:
             candidate = generate_response(
@@ -124,17 +130,17 @@ def _valid_rewrites(batch, rewrites):
 
 def _is_heading(paragraph):
     style = paragraph.style
-    name = (style.name or '').casefold() if style else ''
-    if 'heading' in name or name in {'title', 'subtitle'}:
-        return True
+    while style is not None:
+        name = (style.name or '').casefold()
+        if 'heading' in name or name in {'title', 'subtitle'}:
+            return True
+        if style.element.xpath('./w:pPr/w:outlineLvl'):
+            return True
+        style = style.base_style
     text = paragraph.text.strip()
     visible_runs = [run for run in paragraph.runs if run.text.strip()]
     if text and len(text) <= 120 and visible_runs and all(run.bold is True for run in visible_runs):
         return True
-    if style is not None:
-        outline = style.element.xpath('./w:pPr/w:outlineLvl')
-        if outline:
-            return True
     return bool(paragraph._p.xpath('./w:pPr/w:outlineLvl'))
 
 
@@ -163,6 +169,17 @@ def _editable_paragraphs(document):
         # Word fields, hyperlinks and tracked changes need their own editing rules.
         # Preserve them verbatim rather than damaging their structure.
         if paragraph._p.xpath('.//w:hyperlink | .//w:fldChar | .//w:instrText | .//w:ins | .//w:del'):
+            continue
+        # A whole-paragraph rewrite cannot reliably remap emphasized words,
+        # tabs or manual line breaks to new text. Preserve these blocks intact.
+        if paragraph._p.xpath('.//w:tab | .//w:br | .//w:cr'):
+            continue
+        visible_runs = [run for run in paragraph.runs if run.text]
+        formats = {
+            (run.style.style_id, str(run._r.rPr.xml) if run._r.rPr is not None else '')
+            for run in visible_runs
+        }
+        if len(formats) > 1:
             continue
         if paragraph._p.xpath('.//w:t'):
             yield paragraph
@@ -265,7 +282,10 @@ def _rewrite_with_fallback(batch, voice_sample=None, voice_profile=None,
                            context=None, thorough=False):
     candidates = []
     for attempt in range(2):
-        if attempt and candidates and not thorough:
+        if attempt and candidates and not thorough and any(
+            any(replacement != paragraph.text for paragraph, replacement in zip(batch, rewrites))
+            for rewrites in candidates
+        ):
             break
         try:
             rewrites = _rewrites_for_batch(batch, voice_sample, voice_profile,
@@ -312,7 +332,20 @@ def humanize_docx_progress(content, voice_sample=None, voice_profile=None, thoro
     if not paragraphs:
         raise DocumentHumanizationError('This document has no editable body paragraphs.')
     total = len(paragraphs)
-    yield {'type': 'progress', 'percent': 10, 'processed': 0, 'total': total}
+    preserved = sum(
+        bool(paragraph.text.strip()) and not _is_heading(paragraph)
+        for paragraph in all_paragraphs
+    ) - total
+    if (
+        total > MAX_DOCX_EDITABLE_PARAGRAPHS
+        or sum(len(paragraph.text) for paragraph in paragraphs) > MAX_DOCX_EDITABLE_CHARACTERS
+        or any(len(paragraph.text) > MAX_DOCX_PARAGRAPH_CHARACTERS for paragraph in paragraphs)
+    ):
+        raise DocumentHumanizationError(
+            'This document has too much text for one job. Split it into smaller Word files and try again.'
+        )
+    yield {'type': 'progress', 'percent': 10, 'processed': 0, 'total': total,
+           'preserved': preserved}
 
     # Validate every AI response before modifying the document. A failed batch
     # must never produce a partial download.
@@ -327,6 +360,7 @@ def humanize_docx_progress(content, voice_sample=None, voice_profile=None, thoro
             'percent': 10 + 80 * processed // total,
             'processed': processed,
             'total': total,
+            'preserved': preserved,
         }
 
     for paragraph, replacement in zip(paragraphs, rewrites):

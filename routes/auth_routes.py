@@ -1,5 +1,8 @@
+import secrets
+
 from flask import Blueprint, flash, make_response, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
+from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from models.user import User, db
@@ -9,6 +12,19 @@ from services.auth_security import (
 )
 
 auth_bp = Blueprint('auth', __name__)
+_DUMMY_PASSWORD_HASH = generate_password_hash(secrets.token_urlsafe(32))
+
+
+def _valid_registration_email(email):
+    if len(email) > 150 or email.count('@') != 1:
+        return False
+    local, domain = email.rsplit('@', 1)
+    return bool(
+        local and domain and '.' in domain
+        and not domain.startswith('.') and not domain.endswith('.')
+        and '..' not in domain
+        and not any(char.isspace() or ord(char) < 32 for char in email)
+    )
 
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
@@ -21,11 +37,16 @@ def login():
         if not email or not password:
             flash('Email and password are required.', 'danger')
             return redirect(url_for('auth.login'))
+        # Older accounts may have been created with less strict address validation.
+        if len(email) > 150 or len(password) > 1024:
+            flash('Invalid login credentials. Please try again.', 'danger')
+            return redirect(url_for('auth.login'))
         if too_many_login_attempts(email):
             flash('Too many login attempts. Please try again in 15 minutes.', 'danger')
             return render_template('auth/login.html'), 429
         user = User.query.filter_by(email=email).first()
-        if user and check_password_hash(user.password, password):
+        valid_password = check_password_hash(user.password if user else _DUMMY_PASSWORD_HASH, password)
+        if user and valid_password:
             clear_login_attempts(email)
             session.clear()
             session.permanent = True
@@ -56,7 +77,10 @@ def register():
     if len(password) < 12:
         flash('Password must be at least 12 characters long.', 'danger')
         return redirect(url_for('auth.register'))
-    if len(username) > 100 or len(email) > 150 or len(password) > 1024 or '@' not in email:
+    if (
+        len(username) > 100 or len(password) > 1024 or not _valid_registration_email(email)
+        or any(ord(char) < 32 for char in username)
+    ):
         flash('Please check your account details and try again.', 'danger')
         return redirect(url_for('auth.register'))
     token = known_device_token()
@@ -66,10 +90,15 @@ def register():
     if User.query.filter_by(email=email).first():
         flash('Please use an existing account or a different email address.', 'warning')
         return redirect(url_for('auth.register'))
-    user = User(username=username, email=email, password=generate_password_hash(password))
-    db.session.add(user)
-    db.session.flush()
-    record_signup(user, token)
+    try:
+        user = User(username=username, email=email, password=generate_password_hash(password))
+        db.session.add(user)
+        db.session.flush()
+        record_signup(user, token)
+    except IntegrityError:
+        db.session.rollback()
+        flash('Please check your account details and try again.', 'danger')
+        return redirect(url_for('auth.register'))
     session.clear()
     session.permanent = True
     login_user(user, remember=True)

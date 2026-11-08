@@ -89,9 +89,9 @@
             <main id="main-content" class="page-content">
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% if messages %}
-                    <div class="flash-messages" role="status" aria-live="polite">
+                    <div class="flash-messages">
                         {% for category, message in messages %}
-                        <div class="flash {{ category }}">{{ message }}</div>
+                        <div class="flash {{ category }}" role="{{ 'alert' if category in ('danger', 'error') else 'status' }}">{{ message }}</div>
                         {% endfor %}
                     </div>
                     {% endif %}
@@ -101,5 +101,6 @@
         </div>
     </div>
     <script defer src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>

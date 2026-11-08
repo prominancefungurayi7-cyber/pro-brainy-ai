@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import json
 import threading
 import unittest
@@ -7,6 +8,7 @@ from unittest.mock import patch
 from zipfile import ZipFile
 
 from docx import Document
+from docx.enum.style import WD_STYLE_TYPE
 from docx.shared import Inches
 
 from app import app
@@ -99,6 +101,9 @@ class DocxHumanizerTests(unittest.TestCase):
         self.assertEqual(events[-1], {'type': 'complete', 'percent': 100})
         self.assertEqual(next(event['filename'] for event in events if event['type'] == 'file-start'), 'sample_humanized.docx')
         data = b''.join(base64.b64decode(event['data']) for event in events if event['type'] == 'file-chunk')
+        file_start = next(event for event in events if event['type'] == 'file-start')
+        self.assertEqual(file_start['size'], len(data))
+        self.assertEqual(file_start['sha256'], hashlib.sha256(data).hexdigest())
         document = Document(BytesIO(data))
         self.assertEqual(document.paragraphs[0].text, 'Introduction')
         self.assertEqual(document.paragraphs[2].text, 'Original first body. Revised.')
@@ -184,6 +189,80 @@ class DocxHumanizerTests(unittest.TestCase):
             'file': (BytesIO(b'not a word document'), 'broken.docx'),
         }, content_type='multipart/form-data')
         self.assertEqual(response.status_code, 422)
+
+    @patch('services.humanizer_service.generate_response')
+    def test_inherited_heading_and_mixed_formatting_are_preserved(self, mock_ai):
+        document = Document()
+        section_style = document.styles.add_style('Custom Section', WD_STYLE_TYPE.PARAGRAPH)
+        section_style.base_style = document.styles['Heading 1']
+        document.add_paragraph('A custom section title', style=section_style)
+        mixed = document.add_paragraph()
+        mixed.add_run('This is ')
+        mixed.add_run('important').bold = True
+        mixed.add_run(' body text.')
+        document.add_paragraph('A plain body paragraph.')
+        source = BytesIO()
+        document.save(source)
+
+        def rewrite(prompt, **_kwargs):
+            items = json.loads(prompt.split('\n')[-1])
+            self.assertEqual([item['text'] for item in items], ['A plain body paragraph.'])
+            return json.dumps([{'id': 0, 'text': 'A clearer body paragraph.'}])
+
+        mock_ai.side_effect = rewrite
+        response = self.client.post('/humanizer', data={
+            '_csrf_token': csrf_token(self.client),
+            'file': (BytesIO(source.getvalue()), 'styled.docx'),
+        }, content_type='multipart/form-data')
+        self.assertEqual(response.status_code, 200)
+        result = Document(BytesIO(response.data))
+        self.assertEqual(result.paragraphs[0].text, 'A custom section title')
+        self.assertEqual(result.paragraphs[1].text, 'This is important body text.')
+        self.assertTrue(result.paragraphs[1].runs[1].bold)
+        self.assertEqual(result.paragraphs[2].text, 'A clearer body paragraph.')
+
+    @patch('services.humanizer_service.generate_response')
+    def test_oversize_docx_is_rejected_before_ai_call(self, mock_ai):
+        document = Document()
+        for index in range(121):
+            document.add_paragraph(f'Body paragraph {index}.')
+        source = BytesIO()
+        document.save(source)
+        response = self.client.post('/humanizer', data={
+            '_csrf_token': csrf_token(self.client),
+            'file': (BytesIO(source.getvalue()), 'large.docx'),
+        }, content_type='multipart/form-data')
+        self.assertEqual(response.status_code, 422)
+        self.assertIn(b'Split it into smaller Word files', response.data)
+        mock_ai.assert_not_called()
+
+    @patch('routes.humanizer_routes._DOCX_JOB_SLOTS')
+    @patch('services.humanizer_service.generate_response')
+    def test_busy_document_worker_returns_retry_message_without_ai_call(self, mock_ai, slots):
+        slots.acquire.return_value = False
+        response = self.client.post('/humanizer', data={
+            '_csrf_token': csrf_token(self.client),
+            'file': (BytesIO(sample_document()), 'sample.docx'),
+        }, content_type='multipart/form-data', headers={'Accept': 'text/event-stream'})
+        events = [json.loads(frame[6:]) for frame in response.data.decode().split('\n\n') if frame]
+        self.assertEqual(events, [{
+            'type': 'error', 'message': 'Document processing is busy. Please try again shortly.',
+        }])
+        mock_ai.assert_not_called()
+        slots.release.assert_not_called()
+
+    @patch('routes.humanizer_routes._DOCX_JOB_SLOTS')
+    @patch('services.humanizer_service.generate_response')
+    def test_busy_sync_document_worker_returns_retry_message(self, mock_ai, slots):
+        slots.acquire.return_value = False
+        response = self.client.post('/humanizer', data={
+            '_csrf_token': csrf_token(self.client),
+            'file': (BytesIO(sample_document()), 'sample.docx'),
+        }, content_type='multipart/form-data')
+        self.assertEqual(response.status_code, 429)
+        self.assertIn(b'Document processing is busy', response.data)
+        mock_ai.assert_not_called()
+        slots.release.assert_not_called()
 
     @patch('services.humanizer_service.generate_response')
     def test_images_and_text_position_survive_rewrite(self, mock_ai):

@@ -23,3 +23,8 @@ jobs:
           DATABASE_URL: 'sqlite:///:memory:'
           GEMINI_API_KEY: ci-placeholder-key
         run: python -m unittest discover -s tests -t .
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test Word download stream
+        run: node --test tests/js_humanizer.test.cjs

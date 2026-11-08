@@ -2,12 +2,12 @@ import os
 import hmac
 import secrets
 
-from flask import Flask, abort, jsonify, redirect, render_template, request, session, url_for
+from flask import Flask, abort, g, jsonify, redirect, render_template, request, session, url_for
 from flask_login import LoginManager, current_user
 
 from config import Config
 from models.user import User, db
-from services.auth_security import record_tool_use, tool_limit_reached
+from services.auth_security import refund_tool_reservation, reserve_tool_use
 from services.gemini_service import is_gemini_configured
 
 app = Flask(__name__)
@@ -55,9 +55,31 @@ def protect_tools_and_forms():
         if request.endpoint not in {'humanizer.humanizer_download', 'humanizer.delete_voice'}:
             if not is_gemini_configured():
                 abort(503, description='AI tools are temporarily unavailable.')
-            if tool_limit_reached(current_user.id):
+            reservation_id = reserve_tool_use(current_user.id)
+            if reservation_id is None:
                 abort(429, description='Tool limit reached. Please try again later.')
-            record_tool_use(current_user.id)
+            g.tool_reservation_id = reservation_id
+
+
+@app.after_request
+def finalize_tool_reservation(response):
+    reservation_id = getattr(g, 'tool_reservation_id', None)
+    if reservation_id and not (
+        response.status_code < 400
+        and (getattr(g, 'tool_generated', False) or getattr(g, 'tool_streaming', False))
+    ):
+        refund_tool_reservation(reservation_id)
+    response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+    response.headers.setdefault('X-Frame-Options', 'DENY')
+    response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
+    response.headers.setdefault('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+    if app.config['SESSION_COOKIE_SECURE']:
+        response.headers.setdefault('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+    if request.endpoint != 'static' and (
+        current_user.is_authenticated or response.mimetype == 'text/html'
+    ):
+        response.headers['Cache-Control'] = 'no-store'
+    return response
 
 
 @login_manager.user_loader

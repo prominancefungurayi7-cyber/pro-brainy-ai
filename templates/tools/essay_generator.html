@@ -11,23 +11,28 @@
         <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
         <div class="form-group">
             <label for="topic">Topic</label>
-            <input id="topic" name="topic" type="text" placeholder="Essay topic" required>
+            <input id="topic" name="topic" type="text" placeholder="Essay topic" value="{{ request.form.get('topic', '') }}" required>
         </div>
         <div class="form-group">
             <label for="word_count">Word count</label>
-            <input id="word_count" name="word_count" type="number" value="500" min="100" max="2000">
+            <input id="word_count" name="word_count" type="number" value="{{ request.form.get('word_count') or '500' }}" min="100" max="2000">
         </div>
         <div class="form-group">
             <label for="education_level">Education level</label>
             <select id="education_level" name="education_level">
-                <option value="Primary school">Primary school</option>
-                <option value="O level">O level</option>
-                <option value="A level">A level</option>
-                <option value="Tertiary education">Tertiary education</option>
+                {% set selected_level = request.form.get('education_level', 'Primary school') %}
+                <option value="Primary school"{% if selected_level == 'Primary school' %} selected{% endif %}>Primary school</option>
+                <option value="O level"{% if selected_level == 'O level' %} selected{% endif %}>O level</option>
+                <option value="A level"{% if selected_level == 'A level' %} selected{% endif %}>A level</option>
+                <option value="Tertiary education"{% if selected_level == 'Tertiary education' %} selected{% endif %}>Tertiary education</option>
             </select>
         </div>
         <button type="submit">Generate Essay</button>
     </form>
+
+    {% if error %}
+    <p class="flash danger" role="alert">{{ error }}</p>
+    {% endif %}
 
     {% if output %}
     <div class="output-box">

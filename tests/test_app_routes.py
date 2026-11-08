@@ -107,15 +107,15 @@ class ServiceIntegrationTests(unittest.TestCase):
         self.assertIn(b'Corrected text.', response.data)
         mock_generate.assert_called_once()
 
-    @patch('app.record_tool_use')
+    @patch('app.reserve_tool_use')
     @patch('services.gemini_service._client', None)
-    def test_missing_gemini_key_does_not_charge_tool_use(self, record_use):
+    def test_missing_gemini_key_does_not_charge_tool_use(self, reserve_use):
         response = self.client.post('/grammar', data={
             '_csrf_token': csrf_token(self.client), 'text': 'Please fix this sentence.'
         })
         self.assertEqual(response.status_code, 503)
         self.assertIn(b'temporarily unavailable', response.data)
-        record_use.assert_not_called()
+        reserve_use.assert_not_called()
 
     @patch('services.humanizer_service.generate_response')
     def test_humanizer_route_uses_service(self, mock_generate):

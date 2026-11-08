@@ -11,10 +11,14 @@
         <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
         <div class="form-group">
             <label for="text">Text to fix</label>
-            <textarea id="text" name="text" rows="12" placeholder="Paste text here..." required></textarea>
+            <textarea id="text" name="text" rows="12" placeholder="Paste text here..." required>{{ request.form.get('text', '') }}</textarea>
         </div>
         <button type="submit">Fix Grammar</button>
     </form>
+
+    {% if error %}
+    <p class="flash danger" role="alert">{{ error }}</p>
+    {% endif %}
 
     {% if output %}
     <div class="output-box">

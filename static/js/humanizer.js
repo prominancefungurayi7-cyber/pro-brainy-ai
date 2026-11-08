@@ -28,7 +28,11 @@
 
         const chunks = [];
         let filename = 'humanized.docx';
+        let expectedSize = null;
+        let expectedHash = null;
+        let receivedSize = 0;
         let completed = false;
+        let preservedCount = 0;
         try {
             const response = await fetch(form.action, {
                 method: 'POST',
@@ -49,50 +53,78 @@
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
+            const processFrame = async (frame) => {
+                const data = frame.split(/\r\n|\n|\r/).find((line) => line.startsWith('data: '));
+                if (!data) return;
+                const update = JSON.parse(data.slice(6));
+                if (update.type === 'progress') {
+                    preservedCount = update.preserved || preservedCount;
+                    const detail = update.total
+                        ? `${update.processed} of ${update.total} body paragraphs rewritten.` +
+                          (update.preserved
+                              ? ` ${update.preserved} complex paragraphs are preserved unchanged.`
+                              : '')
+                        : 'Reading your Word document.';
+                    showProgress(update.percent, detail);
+                } else if (update.type === 'file-start') {
+                    filename = update.filename || filename;
+                    expectedSize = Number(update.size);
+                    expectedHash = update.sha256;
+                    if (!Number.isSafeInteger(expectedSize) || expectedSize <= 0 ||
+                        !/^[a-f0-9]{64}$/i.test(expectedHash || '')) {
+                        throw new Error('The document response was incomplete. Please try again.');
+                    }
+                    showProgress(95, 'Preparing the completed Word file.');
+                } else if (update.type === 'file-chunk') {
+                    if (expectedSize === null) throw new Error('The document arrived out of order. Please try again.');
+                    const binary = atob(update.data);
+                    const bytes = new Uint8Array(binary.length);
+                    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+                    receivedSize += bytes.length;
+                    if (receivedSize > expectedSize) throw new Error('The document was damaged during transfer. Please try again.');
+                    chunks.push(bytes);
+                } else if (update.type === 'error') {
+                    throw new Error(update.message || 'The document could not be completed.');
+                } else if (update.type === 'complete') {
+                    if (expectedSize === null || receivedSize !== expectedSize || !chunks.length) {
+                        throw new Error('The document was incomplete. Please try again.');
+                    }
+                    const blob = new Blob(chunks, {
+                        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    });
+                    if (globalThis.crypto?.subtle) {
+                        const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
+                        const actualHash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+                        if (actualHash !== expectedHash.toLowerCase()) {
+                            throw new Error('The document was damaged during transfer. Please try again.');
+                        }
+                    }
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    setTimeout(() => URL.revokeObjectURL(url), 60000);
+                    completed = true;
+                    showProgress(100, 'Complete. Your Word file is downloading.' +
+                        (preservedCount ? ` ${preservedCount} complex paragraphs stayed unchanged.` : ''));
+                }
+            };
             while (true) {
                 const { value, done } = await reader.read();
                 if (done) break;
                 buffer += decoder.decode(value, { stream: true });
                 let boundary;
-                while ((boundary = buffer.indexOf('\n\n')) !== -1) {
-                    const frame = buffer.slice(0, boundary);
-                    buffer = buffer.slice(boundary + 2);
-                    const data = frame.split('\n').find((line) => line.startsWith('data: '));
-                    if (!data) continue;
-                    const update = JSON.parse(data.slice(6));
-                    if (update.type === 'progress') {
-                        const detail = update.total
-                            ? `${update.processed} of ${update.total} body paragraphs rewritten.`
-                            : 'Reading your Word document.';
-                        showProgress(update.percent, detail);
-                    } else if (update.type === 'file-start') {
-                        filename = update.filename || filename;
-                        showProgress(95, 'Preparing the completed Word file.');
-                    } else if (update.type === 'file-chunk') {
-                        const binary = atob(update.data);
-                        const bytes = new Uint8Array(binary.length);
-                        for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-                        chunks.push(bytes);
-                    } else if (update.type === 'error') {
-                        throw new Error(update.message || 'The document could not be completed.');
-                    } else if (update.type === 'complete') {
-                        if (!chunks.length) throw new Error('The completed Word file was empty.');
-                        const blob = new Blob(chunks, {
-                            type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                        });
-                        const url = URL.createObjectURL(blob);
-                        const link = document.createElement('a');
-                        link.href = url;
-                        link.download = filename;
-                        document.body.appendChild(link);
-                        link.click();
-                        link.remove();
-                        setTimeout(() => URL.revokeObjectURL(url), 60000);
-                        completed = true;
-                        showProgress(100, 'Complete. Your Word file is downloading.');
-                    }
+                while ((boundary = /\r\n\r\n|\n\n|\r\r/.exec(buffer)) !== null) {
+                    const frame = buffer.slice(0, boundary.index);
+                    buffer = buffer.slice(boundary.index + boundary[0].length);
+                    await processFrame(frame);
                 }
             }
+            buffer += decoder.decode();
+            if (buffer.trim()) await processFrame(buffer);
             if (!completed) throw new Error('The document connection ended before the file was complete.');
         } catch (error) {
             panel.classList.add('is-error');

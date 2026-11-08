@@ -39,6 +39,13 @@ class HumanizerQualityTests(unittest.TestCase):
         self.assertEqual(result, 'We finished in 2 days.')
         self.assertEqual(mock_ai.call_count, 2)
 
+    @patch('services.humanizer_service.generate_response')
+    def test_unchanged_first_answer_gets_one_more_rewrite_attempt(self, mock_ai):
+        source = 'The task was finished in 2 days.'
+        mock_ai.side_effect = [source, 'We finished the task in 2 days.']
+        self.assertEqual(humanize_text(source), 'We finished the task in 2 days.')
+        self.assertEqual(mock_ai.call_count, 2)
+
     @patch('routes.humanizer_routes.build_voice_profile')
     @patch('services.humanizer_service.generate_response', return_value='We finished in 2 days.')
     def test_saved_voice_is_used_and_can_be_deleted(self, mock_ai, mock_profile):
@@ -99,6 +106,27 @@ class HumanizerQualityTests(unittest.TestCase):
         result = Document(BytesIO(response.data))
         self.assertEqual(result.paragraphs[0].text, 'Results')
         self.assertEqual(result.paragraphs[1].text, 'We completed it in 2 days.')
+
+    @patch('services.humanizer_service.generate_response')
+    def test_docx_retries_an_unchanged_body_paragraph(self, mock_ai):
+        document = Document()
+        document.add_heading('Summary', level=1)
+        document.add_paragraph('The plan was discussed by the team.')
+        source = BytesIO()
+        document.save(source)
+        mock_ai.side_effect = [
+            json.dumps([{'id': 0, 'text': 'The plan was discussed by the team.'}]),
+            json.dumps([{'id': 0, 'text': 'The team discussed the plan.'}]),
+        ]
+        response = self.client.post('/humanizer', data={
+            '_csrf_token': csrf_token(self.client),
+            'file': (BytesIO(source.getvalue()), 'summary.docx'),
+        }, content_type='multipart/form-data')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(mock_ai.call_count, 2)
+        result = Document(BytesIO(response.data))
+        self.assertEqual(result.paragraphs[0].text, 'Summary')
+        self.assertEqual(result.paragraphs[1].text, 'The team discussed the plan.')
 
 
 if __name__ == '__main__':

@@ -232,6 +232,9 @@ button[type="submit"] { margin-top: 3px; }
 .output-box h2 { margin: 0 0 14px; color: #225045; font-size: 1.22rem; letter-spacing: -.03em; }
 .output-box p, .output-box pre { margin: 0; color: #39445e; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.7; }
 .output-box form { margin-top: 18px; }
+.tool-submit-status { display: inline-block; margin: 12px 0 0 14px; color: var(--muted); font-size: .86rem; }
+.tool-submit-status[hidden] { display: none; }
+.tool-container > form button[type="submit"]:disabled { opacity: .65; cursor: wait; transform: none; }
 .humanizer-progress { margin-top: 25px; padding: 20px 22px; border: 1px solid #cfe7d8; border-radius: 15px; background: #f2f9f3; }
 .humanizer-progress[hidden] { display: none; }
 .humanizer-progress-heading { display: flex; justify-content: space-between; gap: 12px; color: #225045; font-size: .95rem; }

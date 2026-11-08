@@ -33,8 +33,10 @@ def detect_ai(text):
                 or any(not isinstance(item, str) for item in observations)
                 or not isinstance(alternative, str)):
             raise ValueError('Malformed writing review')
-    except (GeminiGenerationError, ValueError, TypeError, KeyError):
-        return 'The writing review could not be completed. Please try again.'
+    except GeminiGenerationError:
+        raise
+    except (ValueError, TypeError, KeyError) as exc:
+        raise GeminiGenerationError('The writing review could not be completed. Please try again.') from exc
     lines = ['Writing patterns to review:']
     lines.extend(f'- {item.strip()}' for item in observations if item.strip())
     if len(lines) == 1:

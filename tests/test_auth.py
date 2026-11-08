@@ -1,8 +1,12 @@
 import unittest
 from unittest.mock import patch
 
+from sqlalchemy.exc import IntegrityError
+from werkzeug.security import generate_password_hash
+
 from app import app
 from models.user import SignupSignal, User, db
+from services.auth_security import _client_ip
 from tests.helpers import csrf_token
 
 
@@ -67,6 +71,66 @@ class AuthRouteTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Invalid login credentials', response.data)
+
+    def test_login_checks_dummy_hash_for_unknown_account(self):
+        with patch('routes.auth_routes.check_password_hash', return_value=False) as check:
+            response = self.client.post('/login', data={
+                'email': 'missing@example.com', 'password': 'wrongpassword',
+                '_csrf_token': csrf_token(self.client),
+            })
+        self.assertEqual(response.status_code, 302)
+        check.assert_called_once()
+
+    def test_existing_account_with_legacy_email_can_still_log_in(self):
+        with app.app_context():
+            db.session.add(User(username='Legacy', email='legacy@example',
+                                password=generate_password_hash('securepass123')))
+            db.session.commit()
+        response = self.client.post('/login', data={
+            'email': 'legacy@example', 'password': 'securepass123',
+            '_csrf_token': csrf_token(self.client),
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/dashboard', response.headers['Location'])
+
+    def test_registration_rejects_malformed_email(self):
+        for address in ('a@@example.com', 'a@example', 'a@.example.com',
+                        'a@example..com', 'a@example.com extra'):
+            with self.subTest(address=address):
+                response = self.client.post('/register', data={
+                    '_csrf_token': csrf_token(self.client),
+                    'username': 'Valid Name', 'email': address, 'password': 'securepass123',
+                }, follow_redirects=True)
+                self.assertIn(b'check your account details', response.data)
+        with app.app_context():
+            self.assertEqual(User.query.count(), 0)
+
+    def test_registration_rolls_back_duplicate_insert_race(self):
+        with patch.object(db.session, 'flush', side_effect=IntegrityError('duplicate', {}, None)):
+            response = self.client.post('/register', data={
+                '_csrf_token': csrf_token(self.client),
+                'username': 'Race', 'email': 'race@example.com', 'password': 'securepass123',
+            })
+        self.assertEqual(response.status_code, 302)
+        with app.app_context():
+            self.assertEqual(User.query.count(), 0)
+
+    def test_render_client_ip_uses_validated_forwarded_address(self):
+        with app.test_request_context('/login', headers={
+            'X-Forwarded-For': '203.0.113.8, 10.0.0.1',
+        }, environ_base={'REMOTE_ADDR': '10.0.0.2'}):
+            with patch.dict('os.environ', {'RENDER': 'true'}):
+                self.assertEqual(_client_ip(), '203.0.113.8')
+            with patch.dict('os.environ', {'RENDER': ''}):
+                self.assertEqual(_client_ip(), '10.0.0.2')
+        with app.test_request_context('/login', headers={
+            'X-Forwarded-For': 'not-an-ip, 10.0.0.1',
+        }, environ_base={'REMOTE_ADDR': '10.0.0.2'}):
+            with patch.dict('os.environ', {'RENDER': 'true'}):
+                self.assertEqual(_client_ip(), '10.0.0.2')
+        with app.test_request_context('/login', environ_base={'REMOTE_ADDR': '10.0.0.2'}):
+            with patch.dict('os.environ', {'RENDER': 'true'}):
+                self.assertEqual(_client_ip(), '10.0.0.2')
 
     def test_tool_requires_login(self):
         for path in ('/humanizer', '/detector', '/grammar', '/essay', '/composition', '/summarizer', '/resume', '/ppt'):

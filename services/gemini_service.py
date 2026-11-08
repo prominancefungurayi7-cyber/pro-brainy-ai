@@ -13,6 +13,7 @@ DEFAULT_MODEL = 'gemini-2.5-flash'
 FALLBACK_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.6-flash']
 MODELS = [DEFAULT_MODEL] + FALLBACK_MODELS
 TIMEOUT_SECONDS = 45
+MAX_PROMPT_CHARS = 50_000
 
 _client = None
 if api_key:
@@ -45,21 +46,26 @@ def _failure(message, raise_on_error):
 def _extract_text_from_response(response):
     if response is None:
         return None
-    if hasattr(response, 'text') and response.text:
-        return response.text
+    try:
+        direct_text = getattr(response, 'text', None)
+    except ValueError:
+        direct_text = None
+    if isinstance(direct_text, str) and direct_text.strip():
+        return direct_text
     if hasattr(response, 'candidates') and response.candidates:
         candidate = response.candidates[0]
         content = getattr(candidate, 'content', None)
         if content and hasattr(content, 'parts') and content.parts:
             text_parts = []
             for part in content.parts:
+                if getattr(part, 'thought', False):
+                    continue
                 part_text = getattr(part, 'text', None)
-                if part_text:
+                if isinstance(part_text, str) and part_text.strip():
                     text_parts.append(part_text)
             if text_parts:
                 return ''.join(text_parts)
-        return getattr(candidate, 'output', str(candidate))
-    return str(response)
+    return None
 
 
 def _parse_retry_seconds(exc_text):
@@ -117,6 +123,8 @@ def generate_response(prompt, *, config=None, raise_on_error=False):
 
     if not prompt or not str(prompt).strip():
         return _failure('Please provide text for the AI to process.', raise_on_error)
+    if len(str(prompt)) > MAX_PROMPT_CHARS:
+        return _failure('This input is too long to process in one request. Please shorten it.', raise_on_error)
 
     last_error = None
     saw_rate_limit = False

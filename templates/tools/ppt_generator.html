@@ -11,18 +11,22 @@
         <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
         <div class="form-group">
             <label for="topic">Presentation topic</label>
-            <input id="topic" name="topic" type="text" placeholder="Topic" required>
+            <input id="topic" name="topic" type="text" placeholder="Topic" value="{{ request.form.get('topic', '') }}" required>
         </div>
         <div class="form-group">
             <label for="audience">Target audience</label>
-            <input id="audience" name="audience" type="text" placeholder="Audience (optional)">
+            <input id="audience" name="audience" type="text" placeholder="Audience (optional)" value="{{ request.form.get('audience', '') }}">
         </div>
         <div class="form-group">
             <label for="slides">Number of slides</label>
-            <input id="slides" name="slides" type="number" value="5" min="3" max="20">
+            <input id="slides" name="slides" type="number" value="{{ request.form.get('slides') or '5' }}" min="3" max="20">
         </div>
         <button type="submit">Create Presentation Outline</button>
     </form>
+
+    {% if error %}
+    <p class="flash danger" role="alert">{{ error }}</p>
+    {% endif %}
 
     {% if output %}
     <div class="output-box">

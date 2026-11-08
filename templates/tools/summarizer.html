@@ -11,17 +11,21 @@
         <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
         <div class="form-group">
             <label for="text">Text to summarize</label>
-            <textarea id="text" name="text" rows="10" placeholder="Paste text here..." required></textarea>
+            <textarea id="text" name="text" rows="10" placeholder="Paste text here..." required>{{ request.form.get('text', '') }}</textarea>
         </div>
         <div class="form-group">
             <label for="style">Summary style</label>
             <select id="style" name="style">
-                <option value="concise">Concise</option>
-                <option value="detailed">Detailed</option>
+                <option value="concise"{% if request.form.get('style', 'concise') == 'concise' %} selected{% endif %}>Concise</option>
+                <option value="detailed"{% if request.form.get('style') == 'detailed' %} selected{% endif %}>Detailed</option>
             </select>
         </div>
         <button type="submit">Summarize</button>
     </form>
+
+    {% if error %}
+    <p class="flash danger" role="alert">{{ error }}</p>
+    {% endif %}
 
     {% if output %}
     <div class="output-box">
