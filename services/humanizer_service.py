@@ -161,7 +161,9 @@ def _rewrite_with_fallback(batch, education_level):
         )
 
 
-def humanize_docx(content, education_level='Primary school'):
+def humanize_docx_progress(content, education_level='Primary school'):
+    """Yield measured document progress and then the completed Word file."""
+    yield {'type': 'progress', 'percent': 0, 'processed': 0, 'total': 0}
     try:
         with ZipFile(BytesIO(content)) as archive:
             members = archive.infolist()
@@ -169,6 +171,7 @@ def humanize_docx(content, education_level='Primary school'):
                 raise DocumentHumanizationError('This Word document is too large to process safely.')
     except (BadZipFile, ValueError) as exc:
         raise DocumentHumanizationError('Please upload a valid .docx file.') from exc
+    yield {'type': 'progress', 'percent': 5, 'processed': 0, 'total': 0}
     try:
         document = docx.Document(BytesIO(content))
     except Exception as exc:
@@ -177,12 +180,21 @@ def humanize_docx(content, education_level='Primary school'):
     paragraphs = list(_editable_paragraphs(document))
     if not paragraphs:
         raise DocumentHumanizationError('This document has no editable body paragraphs.')
+    total = len(paragraphs)
+    yield {'type': 'progress', 'percent': 10, 'processed': 0, 'total': total}
 
     # Validate every AI response before modifying the document. A failed batch
     # must never produce a partial download.
     rewrites = []
     for batch in _batches(paragraphs):
         rewrites.extend(_rewrite_with_fallback(batch, education_level))
+        processed = len(rewrites)
+        yield {
+            'type': 'progress',
+            'percent': 10 + 80 * processed // total,
+            'processed': processed,
+            'total': total,
+        }
 
     for paragraph, replacement in zip(paragraphs, rewrites):
         text_nodes = paragraph._p.xpath('.//w:t')
@@ -193,4 +205,12 @@ def humanize_docx(content, education_level='Primary school'):
     output = BytesIO()
     document.save(output)
     output.seek(0)
-    return output
+    yield {'type': 'progress', 'percent': 95, 'processed': total, 'total': total}
+    yield {'type': 'result', 'file': output}
+
+
+def humanize_docx(content, education_level='Primary school'):
+    for update in humanize_docx_progress(content, education_level):
+        if update['type'] == 'result':
+            return update['file']
+    raise DocumentHumanizationError('The document could not be completed. Please try again.')

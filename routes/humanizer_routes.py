@@ -1,11 +1,41 @@
+import base64
+import json
+import logging
 from io import BytesIO
-from flask import Blueprint, render_template, request, send_file
+from flask import Blueprint, Response, render_template, request, send_file, stream_with_context
 from werkzeug.utils import secure_filename
-from services.humanizer_service import DocumentHumanizationError, humanize_docx, humanize_text
+from services.humanizer_service import (
+    DocumentHumanizationError, humanize_docx, humanize_docx_progress, humanize_text,
+)
 import PyPDF2
 
 
 humanizer_bp = Blueprint('humanizer', __name__)
+
+
+def _event(payload):
+    return 'data: ' + json.dumps(payload, separators=(',', ':')) + '\n\n'
+
+
+def _stream_docx(content, download_name, education_level):
+    try:
+        for update in humanize_docx_progress(content, education_level):
+            if update['type'] == 'progress':
+                yield _event(update)
+                continue
+            output = update['file']
+            yield _event({'type': 'file-start', 'filename': download_name})
+            while chunk := output.read(48 * 1024):
+                yield _event({
+                    'type': 'file-chunk',
+                    'data': base64.b64encode(chunk).decode('ascii'),
+                })
+            yield _event({'type': 'complete', 'percent': 100})
+    except DocumentHumanizationError as exc:
+        yield _event({'type': 'error', 'message': str(exc)})
+    except Exception:
+        logging.getLogger(__name__).exception('Document humanization stream failed')
+        yield _event({'type': 'error', 'message': 'The document could not be completed. Please try again.'})
 
 
 def _read_uploaded_text(file_storage):
@@ -38,15 +68,23 @@ def humanizer():
     if request.method == 'POST':
         uploaded_file = request.files.get('file')
         if uploaded_file and uploaded_file.filename.lower().endswith('.docx'):
-            try:
-                processed = humanize_docx(
-                    uploaded_file.read(),
-                    request.form.get('education_level', 'Primary school'),
-                )
-            except DocumentHumanizationError as exc:
-                return render_template('tools/humanizer.html', output=str(exc)), 422
+            content = uploaded_file.read()
+            education_level = request.form.get('education_level', 'Primary school')
             safe_name = secure_filename(uploaded_file.filename) or 'document.docx'
             download_name = f'{safe_name[:-5]}_humanized.docx'
+            if 'text/event-stream' in request.headers.get('Accept', ''):
+                response = Response(
+                    stream_with_context(_stream_docx(content, download_name, education_level)),
+                    mimetype='text/event-stream',
+                )
+                response.headers['Cache-Control'] = 'no-store'
+                response.headers['X-Accel-Buffering'] = 'no'
+                response.headers['X-Content-Type-Options'] = 'nosniff'
+                return response
+            try:
+                processed = humanize_docx(content, education_level)
+            except DocumentHumanizationError as exc:
+                return render_template('tools/humanizer.html', output=str(exc)), 422
             return send_file(
                 processed,
                 as_attachment=True,

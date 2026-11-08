@@ -3,7 +3,7 @@ import hmac
 import secrets
 
 from flask import Flask, abort, jsonify, render_template, request, session
-from flask_login import LoginManager, current_user
+from flask_login import LoginManager, current_user, login_required
 
 from config import Config
 from models.user import User, db
@@ -95,6 +95,7 @@ with app.app_context():
 
 
 @app.route('/')
+@login_required
 def home():
     return render_template('index.html')
 

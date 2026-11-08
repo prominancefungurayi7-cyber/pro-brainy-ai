@@ -12,6 +12,9 @@
 </head>
 <body>
     <a class="skip-link" href="#main-content">Skip to content</a>
+    <button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-controls="app-sidebar" aria-expanded="true" aria-label="Toggle sidebar" title="Toggle sidebar">
+        <span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
+    </button>
     <button class="sidebar-backdrop" id="sidebar-backdrop" type="button" aria-label="Close navigation" tabindex="-1"></button>
 
     <div class="app-shell">
@@ -25,6 +28,7 @@
             </div>
 
             <div class="sidebar-scroll">
+                {% if current_user.is_authenticated %}
                 <div class="nav-section">
                     <p class="nav-heading">Workspace</p>
                     <nav class="nav-list" aria-label="Workspace">
@@ -48,6 +52,9 @@
                         <a class="nav-link{% if request.blueprint == 'ppt' %} is-active{% endif %}" href="{{ url_for('ppt.ppt_generator') }}" aria-label="Presentations" title="Presentations"{% if request.blueprint == 'ppt' %} aria-current="page"{% endif %}><span class="nav-icon" aria-hidden="true">▣</span><span class="nav-text">Presentations</span></a>
                     </nav>
                 </div>
+                {% else %}
+                <p class="sidebar-guest">Sign in to open your writing workspace.</p>
+                {% endif %}
             </div>
 
             <div class="sidebar-bottom">
@@ -73,11 +80,9 @@
         <div class="app-main">
             <header class="topbar">
                 <div class="topbar-start">
-                    <button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-controls="app-sidebar" aria-expanded="true" aria-label="Toggle sidebar" title="Toggle sidebar">
-                        <span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
-                    </button>
                     <div class="topbar-title"><span class="topbar-kicker">PRO BRAINY AI</span><strong>{% block topbar_title %}Your writing workspace{% endblock %}</strong></div>
                 </div>
+                <span class="topbar-status"><span aria-hidden="true"></span>{% if current_user.is_authenticated %}Signed in{% else %}Account access{% endif %}</span>
             </header>
 
             <main id="main-content" class="page-content">

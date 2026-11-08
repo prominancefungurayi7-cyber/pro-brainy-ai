@@ -1,3 +1,4 @@
+import base64
 import json
 import unittest
 from io import BytesIO
@@ -66,6 +67,42 @@ class DocxHumanizerTests(unittest.TestCase):
         self.assertEqual(result.tables[0].cell(1, 0).text, 'Original table body. Humanized.')
         self.assertEqual(result.paragraphs[3].text, 'Original last body. Humanized.')
         self.assertEqual(result.paragraphs[0].style.name, 'Heading 1')
+
+    @patch('services.humanizer_service.generate_response')
+    def test_stream_reports_measured_progress_and_downloads_valid_docx(self, mock_ai):
+        def rewrite(prompt, **_kwargs):
+            source = json.loads(prompt.split('\n')[-1])
+            return json.dumps([{'id': item['id'], 'text': item['text'] + ' Revised.'} for item in source])
+
+        mock_ai.side_effect = rewrite
+        response = self.client.post('/humanizer', data={
+            '_csrf_token': csrf_token(self.client),
+            'file': (BytesIO(sample_document()), 'sample.docx'),
+        }, content_type='multipart/form-data', headers={'Accept': 'text/event-stream'})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('text/event-stream', response.content_type)
+        self.assertEqual(response.headers['Cache-Control'], 'no-store')
+        events = [json.loads(frame[6:]) for frame in response.data.decode().split('\n\n') if frame]
+        progress = [event['percent'] for event in events if event['type'] == 'progress']
+        self.assertEqual(progress, sorted(progress))
+        self.assertEqual(progress[0], 0)
+        self.assertEqual(progress[-1], 95)
+        self.assertEqual(events[-1], {'type': 'complete', 'percent': 100})
+        self.assertEqual(next(event['filename'] for event in events if event['type'] == 'file-start'), 'sample_humanized.docx')
+        data = b''.join(base64.b64decode(event['data']) for event in events if event['type'] == 'file-chunk')
+        document = Document(BytesIO(data))
+        self.assertEqual(document.paragraphs[0].text, 'Introduction')
+        self.assertEqual(document.paragraphs[2].text, 'Original first body. Revised.')
+
+    @patch('services.humanizer_service.generate_response', side_effect=GeminiGenerationError('AI service unavailable'))
+    def test_stream_failure_does_not_send_partial_word_file(self, _mock_ai):
+        response = self.client.post('/humanizer', data={
+            '_csrf_token': csrf_token(self.client),
+            'file': (BytesIO(sample_document()), 'sample.docx'),
+        }, content_type='multipart/form-data', headers={'Accept': 'text/event-stream'})
+        events = [json.loads(frame[6:]) for frame in response.data.decode().split('\n\n') if frame]
+        self.assertEqual(events[-1]['type'], 'error')
+        self.assertFalse(any(event['type'] == 'file-chunk' for event in events))
 
     @patch('services.humanizer_service.generate_response', side_effect=GeminiGenerationError('AI service unavailable'))
     def test_docx_does_not_return_partial_file_on_ai_failure(self, _mock_ai):

@@ -7,7 +7,7 @@
 <div class="tool-container">
     <h1>AI Humanizer</h1>
     <p class="lead">Give your writing a more natural voice. Paste text or upload .txt and .pdf files. Upload a .docx to download an edited Word document with headings and document order preserved.</p>
-    <form method="POST" enctype="multipart/form-data">
+    <form id="humanizer-form" method="POST" enctype="multipart/form-data">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
         <div class="form-group">
             <label for="text">Text to humanize</label>
@@ -26,8 +26,14 @@
                 <option value="Tertiary education">Tertiary education</option>
             </select>
         </div>
-        <button type="submit">Humanize Text</button>
+        <button id="humanizer-submit" type="submit">Humanize Text</button>
     </form>
+
+    <div id="humanizer-progress" class="humanizer-progress" role="status" aria-live="polite" hidden>
+        <div class="humanizer-progress-heading"><strong>Humanizing your document</strong><span id="humanizer-percent">0%</span></div>
+        <progress id="humanizer-progress-bar" max="100" value="0" aria-label="Word document humanization progress"></progress>
+        <p id="humanizer-progress-status">Preparing your Word document.</p>
+    </div>
 
     {% if output %}
     <div class="output-box">
@@ -43,5 +49,7 @@
     </div>
     {% endif %}
 </div>
+
+<script defer src="{{ url_for('static', filename='js/humanizer.js') }}"></script>
 
 {% endblock %}

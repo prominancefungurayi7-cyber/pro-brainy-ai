@@ -49,6 +49,16 @@ class AppRouteTests(unittest.TestCase):
                 response = self.client.get(route)
                 self.assertEqual(response.status_code, 200)
 
+    def test_guest_sees_account_pages_without_service_links(self):
+        guest = app.test_client()
+        self.assertEqual(guest.get('/').status_code, 302)
+        for path in ('/login', '/register'):
+            with self.subTest(path=path):
+                response = guest.get(path)
+                self.assertEqual(response.status_code, 200)
+                self.assertNotIn(b'/humanizer', response.data)
+                self.assertNotIn(b'Writing tools', response.data)
+
 
 class ServiceIntegrationTests(unittest.TestCase):
     def setUp(self):
@@ -83,6 +93,23 @@ class ServiceIntegrationTests(unittest.TestCase):
         response = self.client.post('/detector', data={'_csrf_token': csrf_token(self.client), 'text': 'Sample text to analyze.'})
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'AI probability: 82%', response.data)
+
+    def test_remaining_service_forms_complete_their_workflows(self):
+        cases = (
+            ('/essay', 'services.essay_service.generate_response', {'topic': 'Rainfall', 'word_count': '300'}),
+            ('/composition', 'services.composition_service.generate_response', {'topic': 'A school event', 'word_count': '300'}),
+            ('/summarizer', 'services.summarizer_service.generate_response', {'text': 'A long article.', 'style': 'concise'}),
+            ('/resume', 'services.resume_service.generate_response', {
+                'name': 'Example Person', 'title': 'Teacher', 'experience': 'Two years teaching', 'skills': 'Planning',
+            }),
+            ('/ppt', 'services.ppt_service.generate_response', {'topic': 'Water cycle', 'audience': 'Students', 'slides': '5'}),
+        )
+        for path, service, fields in cases:
+            with self.subTest(path=path), patch(service, return_value='Workflow result.') as mock_generate:
+                response = self.client.post(path, data={'_csrf_token': csrf_token(self.client), **fields})
+                self.assertEqual(response.status_code, 200)
+                self.assertIn(b'Workflow result.', response.data)
+                mock_generate.assert_called_once()
 
     def test_grammar_route_requires_text(self):
         response = self.client.post('/grammar', data={'_csrf_token': csrf_token(self.client), 'text': '   '})
