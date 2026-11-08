@@ -78,14 +78,6 @@
                     </button>
                     <div class="topbar-title"><span class="topbar-kicker">PRO BRAINY AI</span><strong>{% block topbar_title %}Your writing workspace{% endblock %}</strong></div>
                 </div>
-                <div class="topbar-end">
-                    <span class="topbar-status"><span class="status-dot" aria-hidden="true"></span>AI tools ready</span>
-                    {% if current_user.is_authenticated %}
-                    <span class="topbar-avatar" title="{{ current_user.username }}" aria-label="Signed in as {{ current_user.username }}">{{ current_user.username[:1]|upper }}</span>
-                    {% else %}
-                    <a class="topbar-cta" href="{{ url_for('auth.register') }}">Get started <span aria-hidden="true">↗</span></a>
-                    {% endif %}
-                </div>
             </header>
 
             <main id="main-content" class="page-content">

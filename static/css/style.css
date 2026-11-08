@@ -15,6 +15,7 @@
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { margin: 0; min-width: 320px; min-height: 100vh; }
+body.navigation-open { overflow: hidden; }
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 a { color: inherit; text-decoration: none; }
@@ -93,7 +94,7 @@ img, svg { max-width: 100%; }
 .nav-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sidebar-bottom { padding: 14px 12px 18px; border-top: 1px solid #343b51; }
 .account-card { display: flex; align-items: center; gap: 11px; min-width: 0; padding: 8px 10px 14px; }
-.avatar, .topbar-avatar { display: grid; place-items: center; flex: 0 0 37px; width: 37px; height: 37px; border-radius: 12px; color: #fff; background: #6758db; font-weight: 800; }
+.avatar { display: grid; place-items: center; flex: 0 0 37px; width: 37px; height: 37px; border-radius: 12px; color: #fff; background: #6758db; font-weight: 800; }
 .account-copy { display: grid; min-width: 0; line-height: 1.2; }
 .account-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .86rem; }
 .account-copy small { margin-top: 5px; color: #9da9c5; font-size: .72rem; }
@@ -108,7 +109,7 @@ img, svg { max-width: 100%; }
 .topbar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 20px;
     position: sticky;
     top: 0;
@@ -119,18 +120,13 @@ img, svg { max-width: 100%; }
     background: #ffffffed;
     backdrop-filter: blur(16px);
 }
-.topbar-start, .topbar-end { display: flex; align-items: center; gap: 18px; min-width: 0; }
+.topbar-start { display: flex; align-items: center; gap: 18px; min-width: 0; }
 .sidebar-toggle { display: grid; align-content: center; gap: 4px; flex: 0 0 40px; width: 40px; height: 40px; margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 11px; background: #fff; box-shadow: none; }
 .sidebar-toggle span { display: block; width: 100%; height: 2px; border-radius: 3px; background: #47516a; }
 .sidebar-toggle:hover { background: #f2f1ff; border-color: #c7c1f8; transform: none; box-shadow: none; }
 .topbar-title { display: grid; line-height: 1.2; min-width: 0; }
 .topbar-title strong { overflow: hidden; color: var(--ink); font-size: .99rem; white-space: nowrap; text-overflow: ellipsis; }
 .topbar-kicker { margin-bottom: 5px; color: #8b94a9; font-size: .62rem; font-weight: 800; letter-spacing: .16em; }
-.topbar-status { display: inline-flex; align-items: center; gap: 8px; color: #66728a; font-size: .82rem; white-space: nowrap; }
-.status-dot { width: 8px; height: 8px; border-radius: 50%; background: #31b88c; box-shadow: 0 0 0 4px #31b88c25; }
-.topbar-avatar { flex-basis: 37px; border-radius: 50%; }
-.topbar-cta { display: inline-flex; align-items: center; gap: 9px; padding: 10px 16px; border-radius: 10px; color: #fff; background: var(--violet); font-size: .85rem; font-weight: 750; white-space: nowrap; }
-.topbar-cta:hover { background: var(--violet-dark); }
 .page-content { width: min(100%, 1390px); margin: 0 auto; padding: clamp(24px, 3.8vw, 50px); }
 
 .eyebrow { margin: 0 0 13px; color: var(--violet); font-size: .72rem; font-weight: 850; letter-spacing: .17em; text-transform: uppercase; }
@@ -202,6 +198,9 @@ img, svg { max-width: 100%; }
 .tool-container::before, .auth-container::before { content: "WRITING STUDIO"; display: block; margin-bottom: 11px; color: var(--violet); font-size: .7rem; font-weight: 850; letter-spacing: .17em; }
 .auth-container { max-width: 540px; margin-top: min(8vh, 65px); }
 .auth-container::before { content: "YOUR ACCOUNT"; }
+.auth-switch { margin: 23px 0 0; color: var(--muted); font-size: .9rem; }
+.auth-switch a { color: var(--violet-dark); font-weight: 750; }
+.auth-switch a:hover { text-decoration: underline; }
 .tool-container h1, .auth-container h1 { margin: 0 0 11px; color: var(--ink); font-size: clamp(2.15rem, 3.3vw, 3.2rem); line-height: 1.1; letter-spacing: -.055em; }
 .lead { max-width: 760px; color: #68748c; font-size: 1rem; line-height: 1.7; }
 .tool-container > .lead, .auth-container > .lead { margin: 0 0 30px; }
@@ -256,10 +255,8 @@ button[type="submit"] { margin-top: 3px; }
 
 @media (max-width: 620px) {
     .topbar { padding: 12px 17px; }
-    .topbar-status { display: none; }
     .topbar-start { gap: 11px; }
     .topbar-title strong { font-size: .88rem; }
-    .topbar-cta { padding: 9px 11px; font-size: .78rem; }
     .page-content { padding: 18px 15px 34px; }
     .hero { min-height: 345px; padding: 32px 25px; border-radius: 20px; }
     .hero h1 { font-size: clamp(2.35rem, 11vw, 3.25rem); }

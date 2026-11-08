@@ -1,18 +1,31 @@
 {% extends 'base.html' %}
 
+{% block title %}Dashboard | Pro Brainy AI{% endblock %}
+{% block topbar_title %}Dashboard{% endblock %}
+
 {% block content %}
 <section class="dashboard">
-    <h1>Welcome back, {{ user.username }}!</h1>
-    <p class="lead">Quick access to all AI tools from one dashboard so you can continue working without friction.</p>
-    <div class="dashboard-grid">
-        <a class="card" href="{{ url_for('humanizer.humanizer') }}">Humanizer</a>
-        <a class="card" href="{{ url_for('detector.detector') }}">Detector</a>
-        <a class="card" href="{{ url_for('grammar.grammar') }}">Grammar Fixer</a>
-        <a class="card" href="{{ url_for('essay.essay_generator') }}">Essay Generator</a>
-        <a class="card" href="{{ url_for('composition.composition_writer') }}">Composition Writer</a>
-        <a class="card" href="{{ url_for('summarizer.summarizer') }}">Summarizer</a>
-        <a class="card" href="{{ url_for('resume.resume_generator') }}">Resume Generator</a>
-        <a class="card" href="{{ url_for('ppt.ppt_generator') }}">Presentation Generator</a>
+    <div class="dashboard-head">
+        <div>
+            <p class="eyebrow">YOUR WORKSPACE</p>
+            <h1>Welcome back, {{ user.username }}.</h1>
+            <p class="lead">Pick up where your ideas begin. All eight writing tools are ready from this page or the sidebar.</p>
+        </div>
+        <a class="btn" href="{{ url_for('humanizer.humanizer') }}">Open Humanizer <span aria-hidden="true">↗</span></a>
     </div>
+    <div class="section-header">
+        <div><p class="eyebrow">QUICK ACCESS</p><h2>Your writing tools</h2></div>
+    </div>
+    <div class="dashboard-grid">
+        <a class="card" href="{{ url_for('humanizer.humanizer') }}"><span class="card-icon" aria-hidden="true">✧</span><h3>AI Humanizer</h3><p>Humanize text or edit a Word document.</p><span class="card-arrow">Open tool →</span></a>
+        <a class="card" href="{{ url_for('detector.detector') }}"><span class="card-icon" aria-hidden="true">◎</span><h3>AI Detector</h3><p>Review a passage for signs of AI writing.</p><span class="card-arrow">Open tool →</span></a>
+        <a class="card" href="{{ url_for('grammar.grammar') }}"><span class="card-icon" aria-hidden="true">Aa</span><h3>Grammar Fixer</h3><p>Polish grammar, punctuation, and clarity.</p><span class="card-arrow">Open tool →</span></a>
+        <a class="card" href="{{ url_for('essay.essay_generator') }}"><span class="card-icon" aria-hidden="true">≡</span><h3>Essay Generator</h3><p>Create a structured essay from your topic.</p><span class="card-arrow">Open tool →</span></a>
+        <a class="card" href="{{ url_for('composition.composition_writer') }}"><span class="card-icon" aria-hidden="true">✎</span><h3>Composition Writer</h3><p>Draft an engaging composition.</p><span class="card-arrow">Open tool →</span></a>
+        <a class="card" href="{{ url_for('summarizer.summarizer') }}"><span class="card-icon" aria-hidden="true">☷</span><h3>Summarizer</h3><p>Find the main ideas in long text.</p><span class="card-arrow">Open tool →</span></a>
+        <a class="card" href="{{ url_for('resume.resume_generator') }}"><span class="card-icon" aria-hidden="true">▤</span><h3>Resume Builder</h3><p>Present your skills and experience.</p><span class="card-arrow">Open tool →</span></a>
+        <a class="card" href="{{ url_for('ppt.ppt_generator') }}"><span class="card-icon" aria-hidden="true">▣</span><h3>Presentations</h3><p>Plan slides and key talking points.</p><span class="card-arrow">Open tool →</span></a>
+    </div>
+    <div class="dashboard-callout"><strong>A quick note about your workspace</strong><p>On the current free hosting plan, saved accounts and data can reset when the service restarts. Keep a copy of important work you download.</p></div>
 </section>
 {% endblock %}

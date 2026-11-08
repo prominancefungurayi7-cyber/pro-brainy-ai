@@ -1,4 +1,6 @@
 {% extends 'base.html' %}
+{% block title %}Create account | Pro Brainy AI{% endblock %}
+{% block topbar_title %}Create your account{% endblock %}
 
 {% block content %}
 
@@ -21,6 +23,7 @@
         </div>
         <button type="submit">Register</button>
     </form>
+    <p class="auth-switch">Already have an account? <a href="{{ url_for('auth.login') }}">Log in →</a></p>
 </div>
 
 {% endblock %}

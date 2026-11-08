@@ -1,10 +1,12 @@
 {% extends 'base.html' %}
+{% block title %}AI Humanizer | Pro Brainy AI{% endblock %}
+{% block topbar_title %}AI Humanizer{% endblock %}
 
 {% block content %}
 
 <div class="tool-container">
     <h1>AI Humanizer</h1>
-    <p class="lead">Paste text or upload a .txt or .pdf file to humanize it. Upload a .docx file to download an edited Word document with headings and document order preserved.</p>
+    <p class="lead">Give your writing a more natural voice. Paste text or upload .txt and .pdf files. Upload a .docx to download an edited Word document with headings and document order preserved.</p>
     <form method="POST" enctype="multipart/form-data">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
         <div class="form-group">

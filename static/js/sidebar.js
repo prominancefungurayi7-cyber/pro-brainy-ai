@@ -16,6 +16,7 @@
         toggle.setAttribute('aria-label', expanded ? 'Close sidebar' : 'Open sidebar');
         sidebar.inert = mobile.matches && !expanded;
         backdrop.tabIndex = mobile.matches && expanded ? 0 : -1;
+        document.body.classList.toggle('navigation-open', mobile.matches && expanded);
     }
 
     function closeMobile() {
@@ -44,6 +45,17 @@
     });
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && root.classList.contains('sidebar-open')) closeMobile();
+        if (event.key === 'Tab' && mobile.matches && root.classList.contains('sidebar-open')) {
+            const focusable = [...sidebar.querySelectorAll('a, button:not([disabled])')];
+            if (!focusable.length) return;
+            if (event.shiftKey && document.activeElement === focusable[0]) {
+                event.preventDefault();
+                focusable[focusable.length - 1].focus();
+            } else if (!event.shiftKey && document.activeElement === focusable[focusable.length - 1]) {
+                event.preventDefault();
+                focusable[0].focus();
+            }
+        }
     });
     mobile.addEventListener('change', () => {
         root.classList.remove('sidebar-open');
