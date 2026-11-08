@@ -1,5 +1,5 @@
 (() => {
-    const forms = document.querySelectorAll('.tool-container > form:not(#humanizer-form)');
+    const forms = document.querySelectorAll('.tool-container > form:not(#humanizer-form):not(#ppt-download-form)');
     forms.forEach((form) => {
         const submit = form.querySelector('button[type="submit"]');
         if (!submit) return;

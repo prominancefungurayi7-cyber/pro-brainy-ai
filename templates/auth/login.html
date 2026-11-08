@@ -64,6 +64,9 @@
                 </form>
 
                 <p class="join-prompt">New to Pro Brainy AI? <a href="{{ url_for('auth.register') }}">Create an account</a></p>
+                {% if config.TEMPORARY_ACCOUNT_STORAGE %}
+                <p class="temporary-account-note">This preview uses temporary account storage. A restart or deployment can remove accounts. If your details stopped working, create a new account.</p>
+                {% endif %}
             </div>
         </main>
     </div>

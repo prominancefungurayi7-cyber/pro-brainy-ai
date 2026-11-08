@@ -32,6 +32,9 @@ class Config:
     database_url = _normalize_database_url(os.getenv('DATABASE_URL'))
     SQLALCHEMY_DATABASE_URI = database_url or f"sqlite:///{BASE_DIR / 'database.db'}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    TEMPORARY_ACCOUNT_STORAGE = (
+        _env_bool('RENDER', False) and SQLALCHEMY_DATABASE_URI.startswith('sqlite:')
+    )
 
     GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
     MAX_CONTENT_LENGTH = int(os.getenv('MAX_CONTENT_LENGTH', 16 * 1024 * 1024))

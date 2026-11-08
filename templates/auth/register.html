@@ -7,6 +7,9 @@
 <div class="auth-container">
     <h1>Create Account</h1>
     <p class="lead">Register now to save time and access all AI tools from one place.</p>
+    {% if config.TEMPORARY_ACCOUNT_STORAGE %}
+    <p class="flash warning" role="status">This preview uses temporary account storage. Your account may be removed after a restart or deployment.</p>
+    {% endif %}
     <form method="POST">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
         <div class="form-group">

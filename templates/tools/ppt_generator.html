@@ -6,23 +6,38 @@
 
 <div class="tool-container">
     <h1>Presentation Generator</h1>
-    <p class="lead">Create a concise slide outline with titles and key talking points.</p>
-    <form method="POST">
+    <p class="lead">Build a downloadable PowerPoint with clear slides, presenter notes, and relevant diagrams when licensed images are available.</p>
+    <form id="ppt-download-form" method="POST" action="{{ url_for('ppt.ppt_download') }}">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
         <div class="form-group">
             <label for="topic">Presentation topic</label>
-            <input id="topic" name="topic" type="text" placeholder="Topic" value="{{ request.form.get('topic', '') }}" required>
+            <input id="topic" name="topic" type="text" placeholder="Topic" value="{{ request.form.get('topic', '') }}" maxlength="180" required>
         </div>
         <div class="form-group">
             <label for="audience">Target audience</label>
-            <input id="audience" name="audience" type="text" placeholder="Audience (optional)" value="{{ request.form.get('audience', '') }}">
+            <input id="audience" name="audience" type="text" placeholder="Audience (optional)" value="{{ request.form.get('audience', '') }}" maxlength="120">
         </div>
         <div class="form-group">
             <label for="slides">Number of slides</label>
-            <input id="slides" name="slides" type="number" value="{{ request.form.get('slides') or '5' }}" min="3" max="20">
+            <input id="slides" name="slides" type="number" value="{{ request.form.get('slides') or '5' }}" min="3" max="12" required>
         </div>
-        <button type="submit">Create Presentation Outline</button>
+        <div class="form-group">
+            <label for="detail_level">How detailed should it be?</label>
+            <select id="detail_level" name="detail_level">
+                <option value="fully_explanatory"{% if request.form.get('detail_level') == 'fully_explanatory' %} selected{% endif %}>Fully explanatory</option>
+                <option value="medium"{% if request.form.get('detail_level', 'medium') == 'medium' %} selected{% endif %}>Medium</option>
+                <option value="straightforward"{% if request.form.get('detail_level') == 'straightforward' %} selected{% endif %}>Straightforward</option>
+            </select>
+            <small>Longer explanations are placed in presenter notes to keep slides readable.</small>
+        </div>
+        <div class="form-group">
+            <label><input type="checkbox" name="include_diagrams"{% if request.method != 'POST' or request.form.get('include_diagrams') == 'on' %} checked{% endif %}> Find relevant diagrams</label>
+            <small>Searches Wikimedia Commons for licensed images. If none fit, the presentation uses an editable visual. Image credits are included in the file.</small>
+        </div>
+        <button type="submit">Create and download PowerPoint</button>
     </form>
+    <p id="ppt-download-status" role="status" aria-live="polite" hidden></p>
+    <p id="ppt-download-error" class="flash danger" role="alert" hidden></p>
 
     {% if error %}
     <p class="flash danger" role="alert">{{ error }}</p>
@@ -35,5 +50,6 @@
     </div>
     {% endif %}
 </div>
+<script defer src="{{ url_for('static', filename='js/ppt.js') }}"></script>
 
 {% endblock %}

@@ -24,7 +24,9 @@ from tests.helpers import csrf_token, register_client  # noqa: E402
 def main():
     parser = argparse.ArgumentParser(description='Exercise the HTTP Word stream with live Gemini.')
     parser.add_argument('--live', action='store_true', help='Required to call Gemini.')
-    if not parser.parse_args().live:
+    parser.add_argument('--thorough', action='store_true', help='Use the slower rewrite mode.')
+    args = parser.parse_args()
+    if not args.live:
         parser.error('Pass --live to make a Gemini API call.')
 
     image = base64.b64decode(
@@ -45,6 +47,7 @@ def main():
     register_client(client)
     response = client.post('/humanizer', data={
         '_csrf_token': csrf_token(client),
+        'quality': 'thorough' if args.thorough else 'balanced',
         'file': (BytesIO(source.getvalue()), 'project.docx'),
     }, content_type='multipart/form-data', headers={'Accept': 'text/event-stream'})
     if response.status_code != 200:
@@ -70,7 +73,7 @@ def main():
         raise RuntimeError('Heading changed or body was not rewritten.')
     if len(result.inline_shapes) != 1 or result.paragraphs[2].text != 'Figure:  keep this image.':
         raise RuntimeError('Word image or surrounding text changed.')
-    print('HTTP Word stream: OK', flush=True)
+    print(f'HTTP Word stream ({"thorough" if args.thorough else "balanced"}): OK', flush=True)
 
 
 if __name__ == '__main__':

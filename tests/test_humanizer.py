@@ -8,6 +8,7 @@ from docx import Document
 from app import app
 from models.user import UserVoiceProfile, db
 from services.humanizer_service import humanize_text
+from services.gemini_service import GeminiGenerationError
 from tests.helpers import csrf_token, register_client
 
 
@@ -127,6 +128,55 @@ class HumanizerQualityTests(unittest.TestCase):
         result = Document(BytesIO(response.data))
         self.assertEqual(result.paragraphs[0].text, 'Summary')
         self.assertEqual(result.paragraphs[1].text, 'The team discussed the plan.')
+
+    @patch('services.humanizer_service.generate_response')
+    def test_thorough_docx_compares_two_rewrites_in_one_ai_call(self, mock_ai):
+        document = Document()
+        document.add_heading('Results', level=1)
+        document.add_paragraph('The task was finished in 2 days.')
+        source = BytesIO()
+        document.save(source)
+        mock_ai.return_value = json.dumps([{
+            'id': 0,
+            'text': 'The work was completed in 2 days.',
+            'alternative_text': 'We finished the task in 2 days.',
+        }])
+        response = self.client.post('/humanizer', data={
+            '_csrf_token': csrf_token(self.client),
+            'quality': 'thorough',
+            'file': (BytesIO(source.getvalue()), 'results.docx'),
+        }, content_type='multipart/form-data')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(mock_ai.call_count, 1)
+        self.assertIn('alternative_text', mock_ai.call_args.kwargs['config']['response_json_schema']['items']['required'])
+        result = Document(BytesIO(response.data))
+        self.assertEqual(result.paragraphs[0].text, 'Results')
+        self.assertIn(result.paragraphs[1].text, {
+            'The work was completed in 2 days.', 'We finished the task in 2 days.',
+        })
+
+    @patch('services.humanizer_service.time.sleep')
+    @patch('services.humanizer_service.generate_response')
+    def test_thorough_docx_retries_short_rate_limit_once(self, mock_ai, sleep):
+        document = Document()
+        document.add_paragraph('The task was finished in 2 days.')
+        source = BytesIO()
+        document.save(source)
+        mock_ai.side_effect = [
+            GeminiGenerationError('AI is busy. Please retry in about 2 seconds.'),
+            json.dumps([{
+                'id': 0, 'text': 'We finished the task in 2 days.',
+                'alternative_text': 'The team finished the task in 2 days.',
+            }]),
+        ]
+        response = self.client.post('/humanizer', data={
+            '_csrf_token': csrf_token(self.client),
+            'quality': 'thorough',
+            'file': (BytesIO(source.getvalue()), 'results.docx'),
+        }, content_type='multipart/form-data')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(mock_ai.call_count, 2)
+        sleep.assert_called_once_with(2)
 
 
 if __name__ == '__main__':

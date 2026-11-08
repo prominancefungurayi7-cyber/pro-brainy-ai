@@ -49,6 +49,19 @@ class AuthRouteTests(unittest.TestCase):
         protected_response = self.client.get('/dashboard', follow_redirects=False)
         self.assertEqual(protected_response.status_code, 302)
 
+        login_response = self.client.post('/login', data={
+            'email': 'test@example.com',
+            'password': 'securepass123',
+            '_csrf_token': csrf_token(self.client),
+        }, follow_redirects=False)
+        self.assertEqual(login_response.status_code, 302)
+        self.assertIn('/dashboard', login_response.headers['Location'])
+
+    def test_temporary_storage_notice_is_visible_on_hosted_sqlite(self):
+        with patch.dict(app.config, {'TEMPORARY_ACCOUNT_STORAGE': True}):
+            self.assertIn(b'temporary account storage', self.client.get('/login').data)
+            self.assertIn(b'temporary account storage', self.client.get('/register').data)
+
     def test_register_rejects_short_password(self):
         response = self.client.post(
             '/register',

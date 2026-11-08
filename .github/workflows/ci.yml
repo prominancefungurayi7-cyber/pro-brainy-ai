@@ -26,5 +26,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Test Word download stream
-        run: node --test tests/js_humanizer.test.cjs
+      - name: Test document and PowerPoint downloads
+        run: node --test tests/js_humanizer.test.cjs tests/js_ppt.test.cjs
