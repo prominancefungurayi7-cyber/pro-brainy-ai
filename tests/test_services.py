@@ -87,10 +87,12 @@ class ToolServiceTests(unittest.TestCase):
         self.assertNotIn('primary school', prompt.lower())
 
     @patch('services.detector_service.generate_response')
-    def test_detect_ai_parses_json_probability(self, mock_generate):
-        mock_generate.return_value = '{"ai_probability": 91, "explanation": "Very formal."}'
+    def test_detect_ai_reports_observations_without_fake_probability(self, mock_generate):
+        mock_generate.return_value = '{"observations": ["Uniform syntax."], "alternative_explanation": "A human editor may also write this way."}'
         result = detect_ai('Some text')
-        self.assertIn('AI probability: 91%', result)
+        self.assertIn('Uniform syntax.', result)
+        self.assertIn('A human editor may also write this way.', result)
+        self.assertNotIn('%', result)
 
 
 if __name__ == '__main__':

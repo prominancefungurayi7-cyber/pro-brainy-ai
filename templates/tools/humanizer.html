@@ -6,8 +6,30 @@
 
 <div class="tool-container">
     <h1>AI Humanizer</h1>
-    <p class="lead">Give your writing a more natural voice. Paste text or upload .txt and .pdf files. Upload a .docx to download an edited Word document with headings and document order preserved.</p>
+    <p class="lead">Give your writing a more natural voice. Paste text or upload .txt and .pdf files. Upload a .docx to download an edited Word document with headings, images, and document order preserved.</p>
+    <p>Images are kept in place. Text inside an image and text sharing the same paragraph as an image are left unchanged. Image-only documents need OCR before they can be rewritten.</p>
     <p>Review the rewrite for accuracy and your own voice. AI detection scores cannot verify authorship or guarantee a particular result.</p>
+    <section aria-labelledby="saved-voice-title">
+        <h2 id="saved-voice-title">Your saved writing voice</h2>
+        {% if voice_profile %}
+        <p>{{ voice_profile }}</p>
+        <form method="POST" action="{{ url_for('humanizer.delete_voice') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+            <button type="submit">Remove saved voice</button>
+        </form>
+        {% else %}
+        <p>No voice profile saved yet.</p>
+        {% endif %}
+        <form method="POST" action="{{ url_for('humanizer.save_voice') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+            <div class="form-group">
+                <label for="writing_samples">Examples written by you</label>
+                <textarea id="writing_samples" name="writing_samples" rows="5" minlength="100" maxlength="4500" placeholder="Paste two or three paragraphs from your own writing."></textarea>
+                <small>The examples are sent to Gemini. We save the resulting short style guide, not the examples. You can remove it anytime. Saved profiles can reset on the current free host until a persistent database is connected.</small>
+            </div>
+            <button type="submit">Save my writing voice</button>
+        </form>
+    </section>
     <form id="humanizer-form" method="POST" enctype="multipart/form-data">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
         <div class="form-group">
@@ -23,8 +45,17 @@
             <label for="file">Upload file</label>
             <input id="file" type="file" name="file" accept=".txt,.pdf,.docx">
         </div>
+        <div class="form-group">
+            <label for="quality">Rewrite mode</label>
+            <select id="quality" name="quality">
+                <option value="balanced">Balanced: faster</option>
+                <option value="thorough">Thorough: compare two rewrites, slower</option>
+            </select>
+        </div>
         <button id="humanizer-submit" type="submit">Humanize Text</button>
     </form>
+
+    {% if error %}<div class="output-box is-error" role="alert">{{ error }}</div>{% endif %}
 
     <div id="humanizer-progress" class="humanizer-progress" role="status" aria-live="polite" hidden>
         <div class="humanizer-progress-heading"><strong>Humanizing your document</strong><span id="humanizer-percent">0%</span></div>

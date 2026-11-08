@@ -1,13 +1,13 @@
 {% extends 'base.html' %}
-{% block title %}AI Detector | Pro Brainy AI{% endblock %}
-{% block topbar_title %}AI Detector{% endblock %}
+{% block title %}Writing Style Review | Pro Brainy AI{% endblock %}
+{% block topbar_title %}Writing Style Review{% endblock %}
 
 {% block content %}
 
 <div class="tool-container">
-    <h1>AI Detector</h1>
-    <p class="lead">Paste text or upload a .txt, .pdf, or .docx file to review writing patterns that may resemble AI output.</p>
-    <p>Any percentage is Gemini's unvalidated estimate, not a reliable probability or proof of authorship.</p>
+    <h1>Writing Style Review</h1>
+    <p class="lead">Paste text or upload a .txt, .pdf, or .docx file to review formulaic or unusually uniform writing patterns.</p>
+    <p>Writing patterns cannot prove whether a person or an AI wrote the text.</p>
     <form method="POST" enctype="multipart/form-data">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
         <div class="form-group">

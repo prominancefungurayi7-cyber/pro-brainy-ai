@@ -52,7 +52,7 @@ def protect_tools_and_forms():
         if not expected or not supplied or not hmac.compare_digest(expected, supplied):
             abort(400, description='Invalid form token. Refresh the page and try again.')
     if request.blueprint in PROTECTED_BLUEPRINTS and request.method == 'POST':
-        if request.endpoint != 'humanizer.humanizer_download':
+        if request.endpoint not in {'humanizer.humanizer_download', 'humanizer.delete_voice'}:
             if not is_gemini_configured():
                 abort(503, description='AI tools are temporarily unavailable.')
             if tool_limit_reached(current_user.id):

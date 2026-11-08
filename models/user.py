@@ -14,6 +14,13 @@ class User(UserMixin, db.Model):
     subscription = db.Column(db.String(50), default='free')
 
 
+class UserVoiceProfile(db.Model):
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
+    style_guide = db.Column(db.Text, nullable=False)
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
+                           onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+
 class SignupSignal(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True, nullable=False)

@@ -1,0 +1,38 @@
+[
+  {
+    "id": "work_update",
+    "domain": "work",
+    "source": "The implementation of the initiative improved communication across the team. We finished the first phase in 2 weeks.",
+    "voice_sample": "We changed the plan on Monday. By Friday, the first draft was ready."
+  },
+  {
+    "id": "academic_claim",
+    "domain": "academic",
+    "source": "In the 2024 survey, 38% of participants reported using the service weekly (Moyo, 2024). The result does not establish causation.",
+    "voice_sample": "The survey points to a pattern, but it does not explain why it happened."
+  },
+  {
+    "id": "resume_result",
+    "domain": "resume",
+    "source": "I coordinated 4 volunteers and delivered 12 training sessions for new staff in 2025.",
+    "voice_sample": "I like clear, practical work. I plan carefully and follow through."
+  },
+  {
+    "id": "personal_story",
+    "domain": "personal",
+    "source": "The rain started while we were walking home. I was worried that the books in my bag would get wet.",
+    "voice_sample": "I still remember the sound of the gate closing behind us. We laughed and kept walking."
+  },
+  {
+    "id": "customer_email",
+    "domain": "email",
+    "source": "Your request was received on 8 November 2026. We cannot approve a refund until we receive the order number.",
+    "voice_sample": "Thanks for reaching out. I will check this and get back to you tomorrow."
+  },
+  {
+    "id": "technical_instruction",
+    "domain": "technical",
+    "source": "Open https://example.com/setup and enter the 6-digit code. Do not share the code with anyone.",
+    "voice_sample": "Start with the setup page. Follow each step, then check that everything works."
+  }
+]

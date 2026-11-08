@@ -132,10 +132,10 @@ class ServiceIntegrationTests(unittest.TestCase):
 
     @patch('services.detector_service.generate_response')
     def test_detector_route_parses_probability(self, mock_generate):
-        mock_generate.return_value = '{"ai_probability": 82, "explanation": "Formal tone."}'
+        mock_generate.return_value = '{"observations": ["Formal tone."], "alternative_explanation": "A person may write formally."}'
         response = self.client.post('/detector', data={'_csrf_token': csrf_token(self.client), 'text': 'Sample text to analyze.'})
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b'AI probability: 82%', response.data)
+        self.assertIn(b'Formal tone.', response.data)
 
     def test_remaining_service_forms_complete_their_workflows(self):
         cases = (

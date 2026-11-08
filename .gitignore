@@ -12,6 +12,7 @@ __pycache__/
 # Local data
 database.db
 *.sqlite3
+evaluation/review*.json
 
 # IDE / OS
 .idea/

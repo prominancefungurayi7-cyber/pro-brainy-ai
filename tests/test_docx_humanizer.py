@@ -4,8 +4,10 @@ import threading
 import unittest
 from io import BytesIO
 from unittest.mock import patch
+from zipfile import ZipFile
 
 from docx import Document
+from docx.shared import Inches
 
 from app import app
 from models.user import db
@@ -45,9 +47,11 @@ class DocxHumanizerTests(unittest.TestCase):
     def test_docx_preserves_order_headings_and_table(self, mock_ai):
         def rewrite(prompt, **kwargs):
             source = json.loads(prompt.split('\n')[-1])
-            self.assertNotIn('Introduction', prompt)
-            self.assertNotIn('Table heading', prompt)
-            self.assertNotIn('Manually bold heading', prompt)
+            rewritten_text = ' '.join(item['text'] for item in source)
+            self.assertNotIn('Introduction', rewritten_text)
+            self.assertNotIn('Table heading', rewritten_text)
+            self.assertNotIn('Manually bold heading', rewritten_text)
+            self.assertIn('READ-ONLY CONTEXT', prompt)
             self.assertNotIn('primary school', prompt.lower())
             self.assertIn('I keep my sentences short.', prompt)
             self.assertEqual(kwargs['config']['response_mime_type'], 'application/json')
@@ -180,6 +184,46 @@ class DocxHumanizerTests(unittest.TestCase):
             'file': (BytesIO(b'not a word document'), 'broken.docx'),
         }, content_type='multipart/form-data')
         self.assertEqual(response.status_code, 422)
+
+    @patch('services.humanizer_service.generate_response')
+    def test_images_and_text_position_survive_rewrite(self, mock_ai):
+        image = base64.b64decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9pLFsAAAAASUVORK5CYII='
+        )
+        document = Document()
+        document.add_heading('Project report', level=1)
+        document.add_paragraph('Ordinary body text.')
+        mixed = document.add_paragraph()
+        mixed.add_run('Before image. ')
+        mixed.add_run().add_picture(BytesIO(image), width=Inches(.25))
+        mixed.add_run(' After image.')
+        document.add_paragraph('Another body paragraph.')
+        source_file = BytesIO()
+        document.save(source_file)
+
+        def rewrite(prompt, **_kwargs):
+            source = json.loads(prompt.split('\n')[-1])
+            self.assertNotIn('Before image', prompt)
+            self.assertNotIn('After image', prompt)
+            return json.dumps([{'id': item['id'], 'text': item['text'] + ' Revised.'}
+                               for item in source])
+
+        mock_ai.side_effect = rewrite
+        response = self.client.post('/humanizer', data={
+            '_csrf_token': csrf_token(self.client),
+            'file': (BytesIO(source_file.getvalue()), 'illustrated.docx'),
+        }, content_type='multipart/form-data')
+        self.assertEqual(response.status_code, 200)
+        result = Document(BytesIO(response.data))
+        self.assertEqual([paragraph.text for paragraph in result.paragraphs], [
+            'Project report', 'Ordinary body text. Revised.',
+            'Before image.  After image.', 'Another body paragraph. Revised.',
+        ])
+        self.assertEqual(len(result.inline_shapes), 1)
+        with ZipFile(BytesIO(source_file.getvalue())) as before, ZipFile(BytesIO(response.data)) as after:
+            image_name = next(name for name in before.namelist() if name.startswith('word/media/'))
+            self.assertEqual(before.read(image_name), after.read(image_name))
+        self.assertEqual(mock_ai.call_count, 1)
 
 
 if __name__ == '__main__':
